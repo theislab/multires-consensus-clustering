@@ -1,3 +1,4 @@
+import pyvis.network
 from numba import njit, types
 import h5py
 import time
@@ -6,10 +7,10 @@ import numpy as np
 import pandas as pd
 import scanpy as sc
 import itertools
-import bokeh as bok
 import seaborn as sns
-import plotly
-import plotly.graph_objects as go
+from bokeh.plotting import figure
+from bokeh.models import GraphRenderer
+from bokeh.palettes import Spectral8
 
 start = time.time()
 
@@ -28,6 +29,7 @@ def relabel_clusterings(clusterings: pd.DataFrame) -> pd.DataFrame:
 
 
 # jaccrad index computation by Isaac
+@njit
 def clustering_edges_array(clustering1: "np.ndarray[int]",
                            clustering2: "np.ndarray[int]") -> "list[tuple[int, int, float]]":
     """
@@ -77,17 +79,20 @@ def clustering_edges_array(clustering1: "np.ndarray[int]",
     return edges
 
 
-def read_data(path):
-    # read data
+# read data
+def read_data(path, sample_size):
     data = pd.read_table(path)
 
     # for testing return only a sample of clusters
-    return data.iloc[:, 0:21]
+    if type(sample_size) == int:
+        return data.iloc[:, 0:sample_size]
 
-    # return data
+    # return complete set
+    if sample_size == "all":
+        return data
 
 
-def build_graph(data, color_vertex_methode):
+def build_graph(data, color_vertex_methode, label_on_off):
     # create graph
     G = ig.Graph()
 
@@ -132,12 +137,15 @@ def build_graph(data, color_vertex_methode):
                 vertex_labels.append(edge_end)
                 vertex_cluster_methode.append(cluster_methode_1)
 
-
             # check if edge weight is zero
             if edge_weight != 0:
                 # add edge to graph
                 G.add_edges([(edge_start, edge_end)])
                 edge_labels.append(np.round(edge_weight, 5))
+
+        # add edge weight and name to graph
+        G.es["weight"] = edge_labels
+        G.vs["name"] = vertex_labels
 
     # color by degree
     if color_vertex_methode == "degree":
@@ -166,13 +174,109 @@ def build_graph(data, color_vertex_methode):
         colors = [color_palette[names_to_numbers[name]] for name in vertex_cluster_methode]
         G.vs['color'] = colors
 
-    layout = G.layout("kk")
-    ig.plot(G, layout=layout, vertex_size=20, vertex_label=vertex_labels, edge_label=edge_labels)
+    # layout = G.layout_fruchterman_reingold()
+    # layout = G.layout_kamada_kawai()
+    layout = G.layout_auto()
+
+    # turn labels on or off
+    if label_on_off == "label_on":
+        ig.plot(G, layout=layout, vertex_size=20, vertex_label=vertex_labels, edge_label=edge_labels)
+    if label_on_off == "label_off":
+        ig.plot(G, layout=layout, vertex_size=20)
+
+    return G
+
+
+# returns a list of all clusterings closest two the given number of clusters or with the number of cluster (if >= 2)
+def sort_by_number_clusters(settings, data, number_of_clusters):
+    # transforms settings to a dataframe with occurrence of the number of clusters
+    frequency = settings.groupby('n_clusters').count()
+    reindex_frequency = frequency.reset_index()
+
+    # check if number_of_clusters exists in the list of clustering settings
+    if not (number_of_clusters in np.unique(settings['n_clusters'].values)):
+        # if not take the two clusters two clusters closest to the number
+        closest_clusterings = reindex_frequency.iloc[
+            (reindex_frequency['n_clusters'] - number_of_clusters).abs().argsort()[:2]]
+
+        # number of cluster for the closest clusterings
+        number_of_clusters_closest = closest_clusterings.loc[:, "n_clusters"].values
+        # find all clusterings with that number of clusters
+        list_of_clusterings = settings.loc[settings['n_clusters'].isin(number_of_clusters_closest)]["id"].values
+
+        print("There are no clustering methods with ", number_of_clusters,
+              " clusters; the two closest clusterings are :", list_of_clusterings)
+
+    # number of clusters exist in settings
+    else:
+        # check if number of clusters occurs only once
+        if frequency.loc[number_of_clusters, "id"] == 1:
+            # if so take the two closest clusters of the selected number of clusters
+            closest_clusterings = reindex_frequency.iloc[
+                (reindex_frequency['n_clusters'] - number_of_clusters).abs().argsort()[:2]]
+
+            # number of cluster for the closest clusterings
+            number_of_clusters_closest = closest_clusterings.loc[:, "n_clusters"].values
+            # find all clusterings with that number of clusters
+            list_of_clusterings = settings.loc[settings['n_clusters'].isin(number_of_clusters_closest)]["id"].values
+
+            print("Clustering methods with ", number_of_clusters,
+                  " clusters  occurs only once; the two closest clusterings are :", list_of_clusterings)
+
+        # otherwise there are two or more clusterings with the same number of clusters
+
+        # number of clusters exists more than once
+        else:
+            # select all clusterings with the given number of clusters
+            list_of_clusterings = settings.loc[settings['n_clusters'] == number_of_clusters]["id"].values
+
+            print("Clustering methods with ", number_of_clusters, " clusters:", list_of_clusterings)
+
+    # return the list with all clusterings
+    return data[list_of_clusterings]
+
+
+def merge_vertices(G, edge):
+    mapping = {}
+    source_vertex = graph.vs[edge.source]
+    target_vertex = graph.vs[edge.target]
+    mapping[source_vertex] = source_vertex
+    mapping[target_vertex] = source_vertex
+    # G.contract_vertices(mapping)
+
+
+def graph_analysis(G, analysis_methode):
+    if analysis_methode == "clique_number":
+        print(G.clique_number())
+
+    if analysis_methode == "girth":
+        print(G.girth())
+
+    if analysis_methode == "decompose":
+        decompose_G = G.decompose()
+        ig.plot(decompose_G[0])
+
+    if analysis_methode == "maximal_cliques":
+        print(G.cliques())
+
+    if analysis_methode == "merge_weight_1":
+        for edge in G.es:
+            if edge["weight"] == 1:
+                merge_vertices(G, edge)
 
 
 # run program
-clustering_data = read_data("s2d1_clustering.tsv")
-build_graph(clustering_data, "clustering")
+# read data
+clustering_data = read_data("s2d1_clustering.tsv", "all")
+settings_data = read_data("s2d1_settings.tsv", "all")
+
+# build graph, G is used as the variable for the Graph internally
+number_of_clusters_data = sort_by_number_clusters(settings_data, clustering_data, 3)
+graph = build_graph(number_of_clusters_data, "degree", "off")
+
+# analyse graph
+# graph_analysis(graph, "maximal_cliques")
+merge_edges(graph)
 
 # measure the time
 end = time.time()
