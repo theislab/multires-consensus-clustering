@@ -1,0 +1,6 @@
+id	distance	n_neighbors	resolution	random_state	n_clusters
+C001	euclidean	5	0,1	0	3
+C002	euclidean	5	0,1	1	2
+C003	correlation	5	2	0	4
+C004	cosine	15	10	0	2
+C005	cosine	10	2	0	2
