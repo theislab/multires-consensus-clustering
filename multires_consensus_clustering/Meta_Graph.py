@@ -92,7 +92,7 @@ def read_data(path, sample_size):
         return data
 
 
-def build_graph(data):
+def build_graph(clusters, data):
     """
     Builds a meta-graph based on the given data (list of clusterings).
 
@@ -103,15 +103,13 @@ def build_graph(data):
     # create graph
     G = ig.Graph()
 
-    # exclude cell names from data so later all possible combination are the combinations of clusters
-    clusters = data.loc[:, data.columns != 'cell']
-
     # all possible combinations of clusters
     combinations_of_clusters = list(itertools.combinations(clusters.columns, 2))
     print("Number of possible cluster combinations ", len(combinations_of_clusters))
 
     vertex_labels = []
     vertex_cluster_methode = []
+    vertex_cells = []
     edge_labels = []
     for cluster_methode in combinations_of_clusters:
 
@@ -138,11 +136,24 @@ def build_graph(data):
                 vertex_labels.append(edge_start)
                 vertex_cluster_methode.append(cluster_methode_0)
 
+                # find all cell names of cluster_methode_0
+                data_cluster_0 = clusters.loc[data[cluster_methode_0] == edge[0]]
+                index_cluster_0 = data_cluster_0[cluster_methode_0].index
+                cell_data = data["cell"].iloc[index_cluster_0].values
+                vertex_cells.append(list(cell_data))
+
+
             # check if node for cluster_1 is already in the graph
             if not (edge_end in vertex_labels):
                 G.add_vertices(edge_end)
                 vertex_labels.append(edge_end)
                 vertex_cluster_methode.append(cluster_methode_1)
+
+                # find all cell names of cluster_methode_1
+                data_cluster_1 = clusters.loc[data[cluster_methode_1] == edge[1]]
+                index_cluster_1 = data_cluster_1[cluster_methode_1].index
+                cell_data = data["cell"].iloc[index_cluster_1].values
+                vertex_cells.append(list(cell_data))
 
             # check if edge weight is zero
             if edge_weight != 0:
@@ -154,6 +165,7 @@ def build_graph(data):
     G.es["weight"] = edge_labels
     G.vs["name"] = vertex_labels
     G.vs["clustering"] = vertex_cluster_methode
+    G.vs["cell"] = vertex_cells
 
     return G
 
@@ -233,4 +245,5 @@ def plot_graph(G, label_on_off, color_vertex):
         ig.plot(G, layout=layout, vertex_size=20, vertex_label=G.vs["name"], edge_label=G.es["weight"])
     if label_on_off == "label_off":
         ig.plot(G, layout=layout, vertex_size=20)
+
 
