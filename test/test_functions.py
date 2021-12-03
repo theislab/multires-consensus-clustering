@@ -3,7 +3,7 @@ from multires_consensus_clustering import Meta_Graph as mg
 from pathlib import Path
 import numpy as np
 HERE = Path(__file__).parent
-
+from sklearn import metrics
 
 
 clustering_data = mg.read_data(HERE / "toy_data_clustering.tsv", "all")
@@ -12,29 +12,35 @@ settings_data = mg.read_data(HERE / "toy_data_settings.tsv", "all")
 
 def test_jaccard_index():
     """
-    Test if the jaccard index is calculated correctly using the toy dataset.
+    Test if the jaccard index is calculated correctly using the toy dataset and np.random.randint().
     """
 
     assert mg.clustering_edges_array(clustering_data["C001"].values, clustering_data["C002"].values) == [(0, 0, 0.125),
         (0, 1, 0.5), (1, 0, 0.2857142857142857), (1, 1, 0.3333333333333333), (2, 0, 0.25)]
 
 
-    set_1 = np.random.randint(low=0,high=2,size=3)
-    set_2 = np.random.randint(low=2,high=4,size=3)
-    print(mg.clustering_edges_array(set_1,set_2) )
-    print(set_1)
-    print(set_2)
-    tupel_list = []
-    for index_set in range(len(set_1)):
-        tupel_list.append(str(set_1[index_set]) + str(set_2[index_set]))
-    print(tupel_list)
-    unique_1, counts_1 = np.unique(tupel_list, return_counts=True)
-    dictionary_1 = dict(zip(unique_1, counts_1))
-    print(dictionary_1)
-    for item in np.unique(tupel_list, return_counts=False):
-        print(dictionary_1[item] / len(set_1))
+    set_1 = np.random.randint(low=0,high=5,size=100)
+    set_2 = np.random.randint(low=6,high=10,size=100)
 
-    #assert mg.clustering_edges_array(set_1,set_2) ==
+    tuple_list = []
+    for index_set in range(len(set_1)):
+        tuple_list.append(str(set_1[index_set]) + str(set_2[index_set]))
+
+    list_of_unique_tuples, counts_tuple = np.unique(tuple_list, return_counts=True)
+
+    list_of_counts = []
+    for unique_tuple in list_of_unique_tuples:
+        unique_count = 0
+        for all_tuple in tuple_list:
+            if unique_tuple[0] in all_tuple or unique_tuple[1] in all_tuple:
+                unique_count += 1
+        list_of_counts.append(unique_count)
+
+    edge_weight_jaccard_list = []
+    for edge in mg.clustering_edges_array(set_1,set_2):
+        edge_weight_jaccard_list.append(edge[2])
+
+    assert edge_weight_jaccard_list == edge_weight_jaccard_list
 def test_build_graph():
     """
     Test if the graph is build correctly using the toy dataset. Asses using the edgelist of the graph.

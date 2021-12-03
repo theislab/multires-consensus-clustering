@@ -28,9 +28,9 @@ def meta_graph():
     #mg.plot_graph(graph, "label_off", "degree")
 
     #graph = min_cuts(graph)
-    graph_contracted = mcc.graph_community_detection(graph)
+    #graph_contracted = mcc.graph_community_detection(graph)
 
-    mcc.plot_interactive_graph(graph_contracted)
+    #mcc.plot_interactive_graph(graph_contracted)
 
 
 # run program
