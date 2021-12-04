@@ -3,24 +3,7 @@ import numpy as np
 from multires_consensus_clustering import Meta_Graph as mg
 
 
-def merg_edges_weight_1(G):
-    """
-    Merges all edges with edge weight 1.
 
-    :param G: The graph on which the edges should be merged, iGraph object graph.
-    :return: Returns the Graph after changing the edges and nodes after merging the edges.
-    """
-    for edge in G.es:
-        if edge["weight"] == 1:
-            vertex_indices = range(G.vcount())
-            merge_list = [edge.source if x == edge.target else x for x in vertex_indices]
-            G.contract_vertices(merge_list, combine_attrs="first")
-
-    vertices_to_delete = [vertex.index for vertex in G.vs if vertex['name'] is None]
-    G.delete_vertices(vertices_to_delete)
-    G.simplify(combine_edges=max)
-
-    return G
 
 
 def min_cuts(G):

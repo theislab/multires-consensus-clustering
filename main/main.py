@@ -2,6 +2,7 @@ from multires_consensus_clustering import Meta_Graph as mg
 import multires_consensus_clustering as mcc
 from pathlib import Path
 import time
+import igraph as ig
 
 HERE = Path(__file__).parent.parent
 
@@ -20,17 +21,19 @@ def meta_graph():
 
 
     # build graph, G is used as the variable for the Graph internally
-    number_of_clusters_data = mg.sort_by_number_clusters(settings_data, clustering_data, 20)
+    number_of_clusters_data = mg.sort_by_number_clusters(settings_data, clustering_data, 2)
     graph = mg.build_graph(number_of_clusters_data, clustering_data)
 
-    # analyse grap
-    # graph = merg_edges_weight_1(graph)
-    #mg.plot_graph(graph, "label_off", "degree")
-
+    # analyse graph
     #graph = min_cuts(graph)
     #graph_contracted = mcc.graph_community_detection(graph)
 
     #mcc.plot_interactive_graph(graph_contracted)
+    #mcc.bar_chart_nodes(graph_contracted, clustering_data)
+
+    #mcc.merge_edges_weight_1(graph)
+    #ig.plot(graph, vertex_color=ig.drawing.colors.ClusterColoringPalette(graph.vcount()),
+            #vertex_label=graph.vs["name"], edge_label=graph.es["weight"])
 
 
 # run program
