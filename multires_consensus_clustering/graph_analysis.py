@@ -12,7 +12,7 @@ def min_cuts(G):
      lowest weight. Repeats the process until condition for max separations is met.
 
 
-    @param G: The Graph on which the min-cut algorithmen is proformed
+    @param G: The Graph on which the min-cut algorithm is performed.
     @return: Returns the cut graph.
     """
     cut_value_0 = 0

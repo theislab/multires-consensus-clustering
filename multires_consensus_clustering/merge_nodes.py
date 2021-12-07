@@ -52,7 +52,7 @@ def merge_nodes(graph, node_1_indices, node_2_indices):
         attributes_merged_nodes_cell.append(graph.vs[node_1_indices]["cell"])
 
     if type(graph.vs[node_2_indices]["cell"]) == list:
-        for cell in graph.vs[node_2_indices]["name"]:
+        for cell in graph.vs[node_2_indices]["cell"]:
             attributes_merged_nodes_cell.append(cell)
     else:
         attributes_merged_nodes_cell.append(graph.vs[node_2_indices]["cell"])
