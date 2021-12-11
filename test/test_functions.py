@@ -1,7 +1,11 @@
 import pytest
 from multires_consensus_clustering import Meta_Graph as mg
+from multires_consensus_clustering import merge_nodes
 from pathlib import Path
 import numpy as np
+import igraph
+import uuid
+
 HERE = Path(__file__).parent
 from sklearn import metrics
 
@@ -59,6 +63,10 @@ def test_build_graph():
     assert graph.vs.indices == [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]
 
 def test_binning():
+    """
+        Test if the bins of clusters are correctly calculated.
+
+    """
     df_binning = mg.sort_by_number_clusters(settings_data, clustering_data, 2)
     df_control = clustering_data.loc[:, clustering_data.columns != 'cell']
     assert df_binning.equals(df_control)
@@ -66,3 +74,47 @@ def test_binning():
     df_binning = mg.sort_by_number_clusters(settings_data, clustering_data, 4)
     df_control = clustering_data.loc[:, clustering_data.columns != 'cell']
     assert df_binning.equals(df_control)
+
+def test_merge_nodes():
+    """
+        Test for node merging. Tests if all attributes are correctly added to the merged node
+        and if the nodes are correctly merged
+    """
+    # create random graph
+    graph = igraph.Graph.GRG(n=10, radius=2)
+    number_nodes_start = graph.vcount()
+
+    name = []
+    clustering = []
+    cell = []
+    for i in graph.vs.indices:
+        name.append(str(uuid.uuid4())[0:6] + str(i))
+        clustering.append(str(uuid.uuid4())[0:6] + str(i))
+        cell.append([str(uuid.uuid4())[0:6] + str(i), str(uuid.uuid4())[0:6] + str(i), str(uuid.uuid4())[0:6] + str(i)])
+
+    graph.vs["name"] = name
+    graph.vs["clustering"] = clustering
+    graph.vs["cell"] = cell
+
+    # merges node_0 and node_1
+    graph_merged = merge_nodes(graph, 0, 1)
+
+    # test if all attributes are merged correctly
+    assert graph_merged.vs["name"][0] == [name[0], name[1]]
+
+    assert graph_merged.vs["clustering"][0] == [clustering[0], clustering[1]]
+
+    assert graph_merged.vs["cell"][0] == sum([cell[0], cell[1]], [])
+
+    # merges node_1 (former node_1 and node_2 merged and reindex) and node_2 (former node_3)
+    graph_merged = merge_nodes(graph, 0, 1)
+
+    # test if attributes af merged nodes and new node are merged correctly
+    assert graph_merged.vs["name"][0] == [name[0], name[1], name[2]]
+
+    assert graph_merged.vs["clustering"][0] == [clustering[0], clustering[1], clustering[2]]
+
+    assert graph_merged.vs["cell"][0] == sum([cell[0], cell[1], cell[2]], [])
+
+    # tests if the number of nodes is reduced by two (two mergers)
+    assert number_nodes_start - 2 == graph.vcount()
