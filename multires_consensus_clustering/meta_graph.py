@@ -171,7 +171,7 @@ def build_graph(clusters, data):
 
 
 # returns a list of all clusterings closest two the given number of clusters or with the number of cluster (if >= 2)
-def sort_by_number_clusters(settings, data, number_of_clusters):
+def sort_by_number_clusters(settings, data, number_of_clusters_list):
     """
     Uses the  binning.bin_n_clusters() function to fit the data into bins of equal size.
     Afterwards turns the number_of_clusters in each bin into a list of lables of the clusters.
@@ -181,23 +181,24 @@ def sort_by_number_clusters(settings, data, number_of_clusters):
     :param number_of_clusters: The number of clusters which should be binned together.
     :return: Returns a list of the clusterings binned by the number of clusters, e.g. [C001, C002, ...].
     """
+    list_of_clusterings = []
+    for number_of_clusters in number_of_clusters_list:
+        #binning function by Luke Zappia, retruns list of lists, e.g. [[2], [3,4], ..]
+        bins_clusterings = binning.bin_n_clusters(settings["n_clusters"])
 
-    #binning function by Luke Zappia, retruns list of lists, e.g. [[2], [3,4], ..]
-    bins_clusterings = binning.bin_n_clusters(settings["n_clusters"])
+        # finds the closest bin to any given number_of_clusters and returns the bins index
+        best_bin = min(range(len(bins_clusterings)), key=lambda i:
+            abs(bins_clusterings[i][0]+bins_clusterings[i][-1] - 2 * number_of_clusters))
 
-    # finds the closest bin to any given number_of_clusters and returns the bins index
-    best_bin = min(range(len(bins_clusterings)), key=lambda i:
-        abs(bins_clusterings[i][0]+bins_clusterings[i][-1] - 2 * number_of_clusters))
+        # selects the bin
+        number_of_clusters_closest = bins_clusterings[best_bin]
 
-    # selects the bin
-    number_of_clusters_closest = bins_clusterings[best_bin]
+        # find all clusterings contain in the bin by number_of_clusters
+        list_of_clusterings.extend(settings.loc[settings['n_clusters'].isin(number_of_clusters_closest)]["id"].values)
 
-    # find all clusterings contain in the bin by number_of_clusters
-    list_of_clusterings = settings.loc[settings['n_clusters'].isin(number_of_clusters_closest)]["id"].values
 
     # return the list with all clusterings
     return data[list_of_clusterings]
-
 
 
 

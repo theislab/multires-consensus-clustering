@@ -40,4 +40,3 @@ def bin_n_clusters(clustering_sizes, min_clusterings=10):
         bins[-1] = bins[-1] + current_bin
 
     return bins
-
