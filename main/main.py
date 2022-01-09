@@ -29,28 +29,32 @@ def meta_graph():
     # get average edge weight
     mean_edge_value = mcc.plot_edge_weights(graph, plot_on_off=False)
 
+    # find outliers using hdbscan
+    graph = mcc.hdbscan_outlier(graph, mean_edge_value, plot_on_off=False)
+
     # delete all edges below threshold
-    graph = mcc.delete_edges_below_threshold(graph, mean_edge_value)
+    #graph = mcc.delete_edges_below_threshold(graph, mean_edge_value)
 
     # builds a consensus graph by taking different graphs clustering them and intersecting the clusters.
-    graph = mcc.consensus_graph(graph)
-
-    # deletes outlier communities using normalized community size.
-    graph = mcc.delete_one_node_communities(graph)
+    #graph = mcc.consensus_graph(graph)
 
     # uses hdbscan for community detection
     #graph = mcc.hdbscan_community_detection(graph)
 
+    # deletes outlier communities using normalized community size.
+    #graph = mcc.delete_small_node_communities(graph)
+
     # detect and merge communities in the meta graph
     graph = mcc.igraph_community_detection(graph, detection_algorithm="louvain")
-
-    #ig.plot(graph)
 
     # contract graph clustering into single node
     graph = mcc.contract_graph(graph)
 
-    df = mcc.graph_nodes_cells_to_df(graph, clustering_data)
-    mcc.assing_cells_to_cluster(df)
+    # create a pandas dataframe with the probabilities of a cell being in a node
+    df_cell_probability = mcc.graph_nodes_cells_to_df(graph, clustering_data)
+
+    # create a pandas dataframe with the final clustering labels
+    mcc.assign_cluster_to_cell(df_cell_probability)
 
     return graph
 

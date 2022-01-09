@@ -5,6 +5,7 @@ from multires_consensus_clustering import meta_graph as mg
 import itertools
 import multires_consensus_clustering as mcc
 import seaborn as sns
+import sklearn
 import hdbscan
 import matplotlib.pyplot as plt
 from scipy.sparse import csr_matrix
@@ -192,41 +193,14 @@ def hdbscan_community_detection(graph):
     @return:
     """
 
-    """
-    combinations_of_vertices = list(itertools.combinations(range(graph.vcount()), 2))
-    added_edge_weight = np.inf
-    for edge in combinations_of_vertices:
-            if edge not in graph.get_edgelist():
-                graph.add_edges([edge])
-                edge_index = graph.get_eid(edge[0], edge[1])
-                graph.es[edge_index]["weight"] = added_edge_weight
-    """
-
-    path_weight = []
-    vertex_from_list = []
-    vertex_to_list = []
-    vertex_from = 0
-
     inverted_weights = [1 - edge_weight for edge_weight in graph.es["weight"]]
     graph.es["weight"] = inverted_weights
 
-    for vertex in graph.vs:
-        list_edges_shortest_path = graph.get_shortest_paths(vertex["name"], to=None, weights="weight", mode='out', output="epath")
-        vertex_to = 0
-
-        for edge_list in list_edges_shortest_path:
-            if edge_list:
-                vertex_from_list.append(vertex_from)
-                vertex_to_list.append(vertex_to)
-                path_weight.append(sum(graph.es.select(edge_list)["weight"]))
-
-            vertex_to += 1
-        vertex_from += 1
-
-    distance_matrix = csr_matrix((path_weight, (vertex_from_list, vertex_to_list)), shape=(len(path_weight), len(path_weight)))
+    distance_matrix = create_distance_matrix(graph)
 
     clusterer = hdbscan.HDBSCAN(metric="precomputed").fit(distance_matrix)
     labels = clusterer.labels_
+    #print(labels)
 
     if min(labels) < 0:
         labels = [x+1 for x in labels]
@@ -243,10 +217,43 @@ def hdbscan_community_detection(graph):
         colors = [palette[index] for index in labels]
         graph.vs["color"] = colors
 
-
     graph = ig.clustering.VertexClustering.FromAttribute(graph, attribute="color")
 
-    #ig.plot(graph)
-
     return graph
+
+
+def create_distance_matrix(graph):
+    """
+    Creates a distance matrix for the graph by calculating all shortest paths and
+    converting them to a scipy sparse csr matrix.
+
+    @param graph: The graph from which the matrix should be calculated.
+    @return: Returns a scipy sparse csr matrix containing all edges and shortest paths, (vertex, vertex) path-weight
+    """
+
+    path_weight = []
+    vertex_from_list = []
+    vertex_to_list = []
+    vertex_from = 0
+
+    for vertex in graph.vs:
+        list_edges_shortest_path = graph.get_shortest_paths(vertex["name"], to=None, weights="weight", mode='out', output="epath")
+        vertex_to = 0
+
+        for edge_list in list_edges_shortest_path:
+            if edge_list:
+                vertex_from_list.append(vertex_from)
+                vertex_to_list.append(vertex_to)
+                path_weight.append(sum(graph.es.select(edge_list)["weight"]))
+            else:
+                vertex_from_list.append(vertex_from)
+                vertex_to_list.append(vertex_to)
+                path_weight.append(0)
+
+            vertex_to += 1
+        vertex_from += 1
+
+    distance_matrix = csr_matrix((path_weight, (vertex_from_list, vertex_to_list)))
+
+    return distance_matrix
 

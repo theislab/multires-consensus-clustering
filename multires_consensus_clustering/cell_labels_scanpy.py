@@ -4,8 +4,6 @@ import numpy as np
 from pathlib import Path
 import base64
 from io import BytesIO
-import imageio
-import matplotlib.pyplot as plt
 
 HERE = Path(__file__).parent.parent
 
@@ -115,15 +113,24 @@ def umap_plot(df_cell_probability, adata, graph):
     return graph
 
 
-def assing_cells_to_cluster(df_cell_probability):
+def assign_cluster_to_cell(df_cell_probability):
+    """
+    Returns clustering labels based on the highest probability.
+    Creates a pandas dataframe with cells names as index and clustering labels in the column.
+
+    @return df_cell_clusters: Pandas dataframe with cell names as index and clustering labels as column.
     """
 
-    @return: df_cell_clusters
-    """
     df_cell_clusters = df_cell_probability.iloc[:, 0]
-    for column in df_cell_probability.columns:
-        for cell_probability in df_cell_probability[column].values:
-            if cell_probability > df_cell_clusters.iloc[cell_probability.index, column]:
-                print(test)
+    for column in df_cell_probability.columns[1:]:
+        index = 0
+        for cell_probability in df_cell_probability[column]:
+            if df_cell_clusters[index] < cell_probability:
+                df_cell_clusters[index] = cell_probability
+            index += 1
+
+    return df_cell_clusters
+
+
 
 

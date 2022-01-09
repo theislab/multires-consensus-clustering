@@ -1,5 +1,10 @@
 import numpy as np
 import igraph as ig
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+import hdbscan
+import multires_consensus_clustering as mcc
 
 
 def min_cuts(graph):
@@ -44,22 +49,61 @@ def delete_edges_below_threshold(graph, threshold):
     return graph
 
 
-def delete_one_node_communities(vertex_clustering):
+def delete_small_node_communities(vertex_clustering):
     """
+    Deletes communities that are smaller the the average community size.
 
-    @param graph:
-    @return:
+    @param vertex_clustering: The vertex clustering that creates the diffrent communties on the graph.
+    iGraph object: igraph.clustering.VertexClustering.
+    @return: Returns the VertexClustering without the small communities.
     """
     subgraph_list = vertex_clustering.subgraphs()
     sum_subgraphs = sum([subgraph.vcount() for subgraph in subgraph_list])
     normalized_subgraph_size = sum_subgraphs / len(subgraph_list)
-
-    #print(vertex_clustering.graph.vcount())
-
+    ig.plot(vertex_clustering)
+    # print(vertex_clustering.graph.vcount())
+    vertex_list = []
     for subgraph in subgraph_list:
         if subgraph.vcount() < normalized_subgraph_size:
-            vertex_clustering.graph.vs.select(name_in=subgraph.vs["name"]).delete()
+            vertex_list.append(vertex_clustering.graph.vs.select(name_in=subgraph.vs["name"]))
 
-    #print(vertex_clustering.graph.vcount())
+    print(set(vertex_list))
+    vertex_clustering.graph.vs.select(name_in=set(vertex_list)).delete()
 
-    return vertex_clustering.graph
+    vertex_clustering.graph.simplify(multiple=True, loops=True, combine_edges=max)
+    # print(vertex_clustering.graph.vcount())
+    ig.plot(vertex_clustering)
+    return vertex_clustering
+
+
+def hdbscan_outlier(graph, threshold, plot_on_off):
+    """
+    Uses the hdbscan density clustering to detect outlier communities in the graph and deletes them.
+
+    @param plot_on_off: Turn the density distribution plot on or off, type Boolean.
+    @param threshold: 1-threshold is the density above which all connections are deleted.
+    @param graph: The graph on which the outliers should be detected. Needs attribute graph.es["weight"].
+    @return: The graph without the outlier vertices and all multiple edges combined into single connections by max weight.    """
+    inverted_weights = [1 - edge_weight for edge_weight in graph.es["weight"]]
+    graph.es["weight"] = inverted_weights
+
+    distance_matrix = mcc.create_distance_matrix(graph)
+    clusterer = hdbscan.HDBSCAN(metric="precomputed").fit(distance_matrix)
+
+    if plot_on_off:
+        # hdbscan density plot
+        sns.displot(clusterer.outlier_scores_[np.isfinite(clusterer.outlier_scores_)], rug=True)
+        plt.show()
+
+    # hdbscan outlier detection
+    # https://hdbscan.readthedocs.io/en/latest/outlier_detection.html
+    threshold = pd.Series(clusterer.outlier_scores_).quantile(1 - threshold)
+    outliers = np.where(clusterer.outlier_scores_ > threshold)[0]
+
+    graph.delete_vertices(outliers)
+    graph.simplify(multiple=True, loops=True, combine_edges=max)
+
+    inverted_weights = [1 - edge_weight for edge_weight in graph.es["weight"]]
+    graph.es["weight"] = inverted_weights
+
+    return graph
