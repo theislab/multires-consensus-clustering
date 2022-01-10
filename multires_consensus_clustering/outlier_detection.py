@@ -60,20 +60,31 @@ def delete_small_node_communities(vertex_clustering):
     subgraph_list = vertex_clustering.subgraphs()
     sum_subgraphs = sum([subgraph.vcount() for subgraph in subgraph_list])
     normalized_subgraph_size = sum_subgraphs / len(subgraph_list)
-    ig.plot(vertex_clustering)
-    # print(vertex_clustering.graph.vcount())
+
     vertex_list = []
     for subgraph in subgraph_list:
         if subgraph.vcount() < normalized_subgraph_size:
             vertex_list.append(vertex_clustering.graph.vs.select(name_in=subgraph.vs["name"]))
 
-    print(set(vertex_list))
     vertex_clustering.graph.vs.select(name_in=set(vertex_list)).delete()
 
     vertex_clustering.graph.simplify(multiple=True, loops=True, combine_edges=max)
-    # print(vertex_clustering.graph.vcount())
-    ig.plot(vertex_clustering)
-    return vertex_clustering
+
+    return vertex_clustering.graph
+
+
+def delete_nodes_with_zero_degree(graph):
+    """
+    Deletes all nodes without a connection to the rest of the graph.
+
+    @param graph: The graph on which the nodes should be deleted.
+    @return: Returns a graph where ever node has degree > 0.
+    """
+
+    while graph.vs.select(_degree=0):
+        graph.vs.select(_degree=0).delete()
+
+    return graph
 
 
 def hdbscan_outlier(graph, threshold, plot_on_off):
@@ -84,6 +95,7 @@ def hdbscan_outlier(graph, threshold, plot_on_off):
     @param threshold: 1-threshold is the density above which all connections are deleted.
     @param graph: The graph on which the outliers should be detected. Needs attribute graph.es["weight"].
     @return: The graph without the outlier vertices and all multiple edges combined into single connections by max weight.    """
+
     inverted_weights = [1 - edge_weight for edge_weight in graph.es["weight"]]
     graph.es["weight"] = inverted_weights
 
@@ -93,6 +105,11 @@ def hdbscan_outlier(graph, threshold, plot_on_off):
     if plot_on_off:
         # hdbscan density plot
         sns.displot(clusterer.outlier_scores_[np.isfinite(clusterer.outlier_scores_)], rug=True)
+        plt.show()
+
+        # hdbscan tree plot
+        clusterer.condensed_tree_.plot(select_clusters=True,
+                                       selection_palette=sns.color_palette('deep', 8))
         plt.show()
 
     # hdbscan outlier detection

@@ -21,13 +21,16 @@ def meta_graph():
     settings_data = mg.read_data(HERE / "data\s2d1_settings.tsv", "all")
 
     # binning the clusterings in bins close to the given numbers, combines all bins contained in the list
-    number_of_clusters_data = mg.sort_by_number_clusters(settings_data, clustering_data, [4])
+    number_of_clusters_data = mg.sort_by_number_clusters(settings_data, clustering_data, [2])
 
     # builds the graph from the bins
     graph = mg.build_graph(number_of_clusters_data, clustering_data)
 
     # get average edge weight
     mean_edge_value = mcc.plot_edge_weights(graph, plot_on_off=False)
+
+    # delete all nodes with zero degree
+    graph = mcc.delete_nodes_with_zero_degree(graph)
 
     # find outliers using hdbscan
     graph = mcc.hdbscan_outlier(graph, mean_edge_value, plot_on_off=False)
@@ -38,11 +41,11 @@ def meta_graph():
     # builds a consensus graph by taking different graphs clustering them and intersecting the clusters.
     #graph = mcc.consensus_graph(graph)
 
+    # deletes outlier communities using normalized community size.
+    # graph = mcc.delete_small_node_communities(graph)
+
     # uses hdbscan for community detection
     #graph = mcc.hdbscan_community_detection(graph)
-
-    # deletes outlier communities using normalized community size.
-    #graph = mcc.delete_small_node_communities(graph)
 
     # detect and merge communities in the meta graph
     graph = mcc.igraph_community_detection(graph, detection_algorithm="louvain")
@@ -99,7 +102,7 @@ if __name__ == "__main__":
     start = time.time()
 
     meta_graph = meta_graph()
-    #interactive_plot(meta_graph, create_upsetplot=False, create_edge_weight_barchart=False)
+    interactive_plot(meta_graph, create_upsetplot=False, create_edge_weight_barchart=False)
 
     # measure the time
     end = time.time()

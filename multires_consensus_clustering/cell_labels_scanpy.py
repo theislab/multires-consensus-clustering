@@ -121,16 +121,26 @@ def assign_cluster_to_cell(df_cell_probability):
     @return df_cell_clusters: Pandas dataframe with cell names as index and clustering labels as column.
     """
 
-    df_cell_clusters = df_cell_probability.iloc[:, 0]
-    for column in df_cell_probability.columns[1:]:
-        index = 0
+    df_cell_clusters = pd.DataFrame({
+        'cell': df_cell_probability.index,
+        'probability': pd.Series([-1] * len(df_cell_probability), dtype='float'),
+        'cluster_labels': [-1] * len(df_cell_probability)
+    })
+
+    df_cell_clusters['probability'].astype(dtype='float64')
+
+    df_cell_clusters.set_index('cell', inplace=True, drop=True)
+
+    cluster_label = 1
+    for column in df_cell_probability.columns:
+        index_row = 0
         for cell_probability in df_cell_probability[column]:
-            if df_cell_clusters[index] < cell_probability:
-                df_cell_clusters[index] = cell_probability
-            index += 1
+            if df_cell_clusters["probability"][index_row] < cell_probability and 0 < cell_probability:
+                df_cell_clusters.iat[index_row, 0] = cell_probability
+                df_cell_clusters.iat[index_row, 1] = cluster_label
+            index_row += 1
+        cluster_label += 1
+
+    print("Certainty cluster labels:", df_cell_clusters["probability"].sum()/len(df_cell_clusters))
 
     return df_cell_clusters
-
-
-
-
