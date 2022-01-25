@@ -55,7 +55,7 @@ def igraph_community_detection(G, detection_algorithm):
         graph_list.append(ig.Graph.community_infomap(G, edge_weights="weight"))
 
         # label propagation method of Raghavan et al.
-        #graph_list.append(ig.Graph.community_label_propagation(G, weights="weight"))
+        # graph_list.append(ig.Graph.community_label_propagation(G, weights="weight"))
 
         # newman2006
         graph_list.append(ig.Graph.community_leading_eigenvector(G, weights="weight"))
@@ -64,22 +64,22 @@ def igraph_community_detection(G, detection_algorithm):
         graph_list.append(ig.Graph.community_multilevel(G, weights="weight"))
 
         # betweenness of the edges in the network.
-        #graph_list.append(ig.Graph.community_edge_betweenness(G, weights="weight").as_clustering())
+        # graph_list.append(ig.Graph.community_edge_betweenness(G, weights="weight").as_clustering())
 
         # spinglass community detection method of Reichardt & Bornholdt.
-        #graph_list.append(ig.Graph.community_spinglass(G, weights="weight"))
+        # graph_list.append(ig.Graph.community_spinglass(G, weights="weight"))
 
         # detection algorithm of Latapy & Pons, based on random walks.
-        #graph_list.append(ig.Graph.community_walktrap(G, weights="weight").as_clustering())
+        # graph_list.append(ig.Graph.community_walktrap(G, weights="weight").as_clustering())
 
         # community structure of the graph using the Leiden algorithm of Traag, van Eck & Waltman, to many clusters.
-        #graph = ig.Graph.community_leiden(G, weights="weight")
+        # graph = ig.Graph.community_leiden(G, weights="weight")
 
-        #ig.plot(graph)
-        #graph_list.append(ig.Graph.community_leiden(G, weights="weight"))
-        #ig.plot(graph_list[0])
-        #ig.plot(graph_list[1])
-        #ig.plot(graph_list[2])
+        # ig.plot(graph)
+        # graph_list.append(ig.Graph.community_leiden(G, weights="weight"))
+        # ig.plot(graph_list[0])
+        # ig.plot(graph_list[1])
+        # ig.plot(graph_list[2])
         return graph_list
 
 
@@ -146,7 +146,7 @@ def intersect_two_graphs_lists(graph_list_1, graph_list_2):
     intersection_list = []
     for subgraph_0 in graph_list_1:
         for subgraph_1 in graph_list_2:
-            intersection = ig.intersection([subgraph_0,subgraph_1], keep_all_vertices=False, byname="auto")
+            intersection = ig.intersection([subgraph_0, subgraph_1], keep_all_vertices=False, byname="auto")
             intersection_list.append(intersection)
 
     return intersection_list
@@ -196,14 +196,15 @@ def hdbscan_community_detection(graph):
     inverted_weights = [1 - edge_weight for edge_weight in graph.es["weight"]]
     graph.es["weight"] = inverted_weights
 
-    distance_matrix = create_distance_matrix(graph)
+    # distance_matrix = create_distance_matrix(graph)
+    distance_matrix = graph.get_adjacency_sparse(attribute="weight")
 
     clusterer = hdbscan.HDBSCAN(metric="precomputed").fit(distance_matrix)
     labels = clusterer.labels_
-    #print(labels)
+    # print(labels)
 
     if min(labels) < 0:
-        labels = [x+1 for x in labels]
+        labels = [x + 1 for x in labels]
 
         palette = ig.ClusterColoringPalette(len(set(labels)))
         colors = [palette[index] for index in labels]
@@ -237,7 +238,8 @@ def create_distance_matrix(graph):
     vertex_from = 0
 
     for vertex in graph.vs:
-        list_edges_shortest_path = graph.get_shortest_paths(vertex["name"], to=None, weights="weight", mode='out', output="epath")
+        list_edges_shortest_path = graph.get_shortest_paths(vertex["name"], to=None, weights="weight", mode='out',
+                                                            output="epath")
         vertex_to = 0
 
         for edge_list in list_edges_shortest_path:
@@ -257,3 +259,63 @@ def create_distance_matrix(graph):
 
     return distance_matrix
 
+
+def distance_matrix_nx(graph):
+    """
+
+    @param graph:
+    @return:
+    """
+    path_weight = []
+    vertex_from_list = []
+    vertex_to_list = []
+    vertex_from = 0
+
+    G = nx.from_edgelist([(names[x[0]], names[x[1]][x["weight"]])
+                          for names in [graph.vs['name']]  # simply a let
+                          for x in graph.get_edgelist()], nx.Graph())
+
+    for node_1 in G.nodes():
+        vertex_to = 0
+        for node_2 in G.nodes():
+            try:
+                weight = nx.single_source_dijkstra(G, node_1, target=node_2, cutoff=1, weight='weight')
+                vertex_from_list.append(vertex_from)
+                vertex_to_list.append(vertex_to)
+                path_weight.append(weight)
+            except:
+                vertex_from_list.append(vertex_from)
+                vertex_to_list.append(vertex_to)
+                path_weight.append(1)
+
+        vertex_to += 1
+    vertex_from += 1
+    print(vertex_to_list)
+    print(vertex_from_list)
+    print(path_weight)
+
+    distance_matrix = csr_matrix((path_weight, (vertex_from_list, vertex_to_list)))
+
+    return distance_matrix
+
+
+def weighted_jaccard(probability_node_1, probability_node_2):
+    """
+    Weighted jaccard-index based on the paper "Finding the Jaccard Median"; http://theory.stanford.edu/~sergei/papers/soda10-jaccard.pdf
+
+    @param probability_node_1: List of probabilities (vertex_1) created from the cells occurring in the meta node,
+        created with graph_nodes_cells_to_df and split up by column and turn int list with values.
+    @param vertex_2_probaility_df:  List of probabilities (vertex_2) created from the cells occurring in the meta node,
+        created with graph_nodes_cells_to_df and split up by column and turn int list with values.
+    @return: The weighted probability_node_2 index; int.
+    """
+
+    sum_min = sum([min(compare_elements) for compare_elements in zip(probability_node_1, probability_node_2)])
+    sum_max = sum([max(compare_elements) for compare_elements in zip(probability_node_1, probability_node_2)])
+
+    if sum_max == 0:
+        weighted_jaccard_index = 0
+    else:
+        weighted_jaccard_index = sum_min / sum_max
+
+    return weighted_jaccard_index

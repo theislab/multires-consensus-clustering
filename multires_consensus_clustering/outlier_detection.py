@@ -33,18 +33,16 @@ def min_cuts(graph):
 def delete_edges_below_threshold(graph, threshold):
     """
     Deletes all edges, of the given graph, below a certain threshold.
-
+    weight
     @param graph: The graph, igraph object.
     @param threshold: Float number for the threshold, every edge with weight < threshold is deleted.
     @return: The graph without all edges with edge weight < threshold.
     """
 
-    for edge in graph.es:
-        if edge["weight"] < threshold:
-            graph.delete_edges([edge.source, edge.target])
+    graph.es.select(weight_le=threshold).delete()
 
     # delete all vertices with no connection
-    graph.vs.select(_degree=0).delete()
+    #graph.vs.select(_degree=0).delete()
 
     return graph
 
@@ -53,7 +51,7 @@ def delete_small_node_communities(vertex_clustering):
     """
     Deletes communities that are smaller the the average community size.
 
-    @param vertex_clustering: The vertex clustering that creates the diffrent communties on the graph.
+    @param vertex_clustering: The vertex clustering that creates the different communities on the graph.
     iGraph object: igraph.clustering.VertexClustering.
     @return: Returns the VertexClustering without the small communities.
     """
@@ -99,7 +97,9 @@ def hdbscan_outlier(graph, threshold, plot_on_off):
     inverted_weights = [1 - edge_weight for edge_weight in graph.es["weight"]]
     graph.es["weight"] = inverted_weights
 
-    distance_matrix = mcc.create_distance_matrix(graph)
+    #distance_matrix = mcc.create_distance_matrix(graph)
+    distance_matrix = mcc.distance_matrix_nx(graph)
+    #distance_matrix = graph.get_adjacency_sparse(attribute="weight")
     clusterer = hdbscan.HDBSCAN(metric="precomputed").fit(distance_matrix)
 
     if plot_on_off:

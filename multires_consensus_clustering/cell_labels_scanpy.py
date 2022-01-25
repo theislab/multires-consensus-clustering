@@ -8,12 +8,12 @@ from io import BytesIO
 HERE = Path(__file__).parent.parent
 
 
-def graph_nodes_cells_to_df(graph, data):
+def graph_nodes_cells_to_df(graph, clustering_data):
     """
     Create as pandas dataframe with the probability of each cell occurring in one node.
 
     @param graph: The graph, need attribute graph.vs["cell"]
-    @param data: The clustering data, type pandas.dataframe, e.g. cell, C001, C002, ...
+    @param clustering_data: The clustering data, type pandas.dataframe, e.g. cell, C001, C002, ...
     @return: Return a pandas dataframe with cells as index and probability sorted by node.
     """
     label_list = []
@@ -24,7 +24,7 @@ def graph_nodes_cells_to_df(graph, data):
             cluster_cell_list = cell_list + cluster_cell_list
         label_list.append(cluster_cell_list)
 
-    cell_names = pd.DataFrame(data["cell"])
+    cell_names = pd.DataFrame(clustering_data["cell"])
 
     i = 0
     list_df_nodes = []
@@ -45,6 +45,31 @@ def graph_nodes_cells_to_df(graph, data):
     all_cell_counts = all_cell_counts.groupby(['cell']).sum()
 
     return all_cell_counts
+
+
+def single_node_to_df(vertex, clustering_data):
+    """
+    Create as pandas dataframe with the probability of each cell occurring in the given node.
+
+    @param vertex: iGraph vertex (node), needs attribute ["cell"]
+    @param clustering_data: The clustering data, type pandas.dataframe, e.g. cell, C001, C002, ...
+    @return: Return a pandas dataframe with cells as index and probability sorted by node.
+    """
+    cluster_cell_list = []
+    for cell_list in vertex["cell"]:
+        cluster_cell_list = cell_list + cluster_cell_list
+
+    cell_names = pd.DataFrame(clustering_data["cell"])
+
+    values, counts = np.unique(cluster_cell_list, return_counts=True)
+    counts = counts / len(vertex["name"])
+    node_cell_count = pd.DataFrame({"cell": values, 'merged_node' : counts})
+    merged_cell_count = pd.concat([cell_names.set_index("cell"), node_cell_count.set_index("cell")], axis=1)
+
+    all_cell_counts = merged_cell_count.groupby(['cell']).sum()
+
+    return all_cell_counts
+
 
 
 def relabel_cell(df_cell_probability, adata_s2d1):

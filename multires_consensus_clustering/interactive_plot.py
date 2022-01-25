@@ -3,6 +3,8 @@ from matplotlib import pyplot as plt
 import bokeh
 from bokeh.plotting import figure
 from bokeh.models import GraphRenderer, HoverTool, ColumnDataSource, Circle, ColorBar
+from bokeh.models import (BoxSelectTool, Circle, EdgesAndLinkedNodes, HoverTool,
+                          MultiLine, NodesAndLinkedEdges, Plot, Range1d, TapTool)
 from bokeh.io import show, output_file
 from bokeh.transform import linear_cmap, LogColorMapper
 from bokeh.palettes import plasma, Plasma256
@@ -11,10 +13,12 @@ from pathlib import Path
 HERE = Path(__file__).parent.parent
 
 
-def plot_interactive_graph(G, df_cell_probability):
+def plot_interactive_graph(G, df_cell_probability, layout_option):
     """
     Plots a interactive version of the graph, which can display the cells contained in a cluster.
 
+    @param layout_option: Either "hierarchy" for a tree like plot, iGraph vertices need attribute G.vs["level"].
+        Otherwise uses the auto layout of iGraph.
     @param df_cell_probability: Pandas Dataframe with a probability value for each cell for being in a merged node.
     @param G: The render_graph to plot, iGraph object graph. Has attributes .vs["name"], .vs["clustering"],
         .vs["cell"], .es["weight"].
@@ -24,7 +28,19 @@ def plot_interactive_graph(G, df_cell_probability):
     # basic properties of the graph G
     number_of_nodes = G.vcount()
     edge_list_tuple = [e.tuple for e in G.es]
-    layout_graph = G.layout_auto()
+
+    # iGraph layout using layout_option
+    if layout_option == "hierarchy":
+        if "level" in G.vs.attributes():
+            layout_graph = G.layout_sugiyama(layers=G.vs["level"])
+        else:
+            # catch no attribute
+            print("Graph has no attribute: level")
+            layout_graph = G.layout_auto()
+
+    # auto layout for any other input
+    else:
+        layout_graph = G.layout_auto()
 
     # render_graph attributes for each node/edge
     name_node = list(G.vs['name'])
@@ -57,6 +73,7 @@ def plot_interactive_graph(G, df_cell_probability):
     render_graph = GraphRenderer()
 
     # add attributes to bokeh network render_graph
+    # node data
     render_graph.node_renderer.data_source.data["number_cells_node"] = number_cells_node
     render_graph.node_renderer.data_source.data["number_clusters_combined"] = number_clusters_combined
     render_graph.node_renderer.data_source.data["number_clustering_combined"] = number_clustering_combined
@@ -64,8 +81,10 @@ def plot_interactive_graph(G, df_cell_probability):
     render_graph.node_renderer.data_source.data['name'] = name_node
     render_graph.node_renderer.data_source.data['clustering'] = clustering_node
     render_graph.node_renderer.data_source.data['img'] = plot_node
+    # edge data
+    render_graph.edge_renderer.data_source.data["weight"] = edge_weight
 
-    # add information with hoverTool
+    # add vertex information with hoverTool
     node_hover = HoverTool(
         tooltips=[
             ("img", "@img{safe}"),
@@ -88,6 +107,13 @@ def plot_interactive_graph(G, df_cell_probability):
     render_graph.edge_renderer.data_source.data = dict(
         start=edge_x,
         end=edge_y)
+
+    # edge line width based on the edge weight
+    dict_edge_weight = dict(zip(zip(edge_x, edge_y), edge_weight))
+    line_width = [dict_edge_weight[edge] * 10 for edge in zip(render_graph.edge_renderer.data_source.data["start"],
+                                                              render_graph.edge_renderer.data_source.data["end"])]
+    render_graph.edge_renderer.data_source.data["line_width"] = line_width
+    render_graph.edge_renderer.glyph.line_width = {'field': 'line_width'}
 
     # create graph layout according to bokeh Visualizing network graphs documentation
     graph_layout = dict(zip(node_indices, zip(node_x, node_y)))
@@ -128,4 +154,4 @@ def upsetplot_graph_nodes(df_cell_probability):
     cell_in_node_size_upset = df_cell_probability.groupby(column_names).size()
     plot(cell_in_node_size_upset)
 
-    #plt.show()
+    plt.show()

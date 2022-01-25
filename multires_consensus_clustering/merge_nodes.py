@@ -83,6 +83,7 @@ def merge_edges_weight_1(graph):
     :param graph: The graph on which the edges should be merged, iGraph object graph.
     :return: Returns the Graph after changing the edges and nodes after merging the edges.
     """
+
     edges_to_merge = True
     while edges_to_merge:
         for edge in graph.es:
