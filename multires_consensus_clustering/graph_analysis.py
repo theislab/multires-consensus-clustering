@@ -11,6 +11,8 @@ import matplotlib.pyplot as plt
 from scipy.sparse import csr_matrix
 import itertools
 import networkx as nx
+import seaborn as sns
+
 
 
 def igraph_community_detection(G, detection_algorithm):
@@ -52,7 +54,7 @@ def igraph_community_detection(G, detection_algorithm):
         graph_list.append(ig.Graph.community_fastgreedy(G, weights="weight").as_clustering())
 
         # infomap Martin Rosvall and Carl T. Bergstrom.
-        graph_list.append(ig.Graph.community_infomap(G, edge_weights="weight"))
+       #graph_list.append(ig.Graph.community_infomap(G, edge_weights="weight"))
 
         # label propagation method of Raghavan et al.
         # graph_list.append(ig.Graph.community_label_propagation(G, weights="weight"))
@@ -114,22 +116,13 @@ def plot_edge_weights(graph, plot_on_off):
 
     # else plot barchart of edge weights and return the averge edge weight
     else:
-        range_edges = range(number_edges)
         edge_weights = graph.es["weight"]
         mean_edge_value = sum(edge_weights) / len(edge_weights)
-        mean_edge_value_list = [mean_edge_value] * len(edge_weights)
-
-        # edge weights sorted by edge id
-        """
-        plt.bar(range_edges, edge_weights)
-        plt.plot(range_edges, mean_edge_value_list, linestyle='--', color='red')
-        plt.show()
-        """
 
         if plot_on_off:
-            # edge weights sorted from high to low; 1 -> 0
-            plt.bar(range_edges, sorted(edge_weights, reverse=True))
-            plt.plot(range_edges, mean_edge_value_list, linestyle='--', color='red')
+            # distribution edge weights, histogram with average line
+            plt.hist(edge_weights, edgecolor='k', bins=40)
+            plt.axvline(mean_edge_value, color='k', linestyle='dashed', linewidth=1)
             plt.show()
 
         return mean_edge_value
@@ -146,7 +139,7 @@ def intersect_two_graphs_lists(graph_list_1, graph_list_2):
     intersection_list = []
     for subgraph_0 in graph_list_1:
         for subgraph_1 in graph_list_2:
-            intersection = ig.intersection([subgraph_0, subgraph_1], keep_all_vertices=False, byname="auto")
+            intersection = ig.intersection([subgraph_0, subgraph_1], keep_all_vertices=False, byname=False)
             intersection_list.append(intersection)
 
     return intersection_list
@@ -175,7 +168,7 @@ def consensus_graph(graph):
     for intersection in intersection_list:
         if intersection:
             for vertex in intersection.vs:
-                vertex_index = graph.vs.find(name=vertex["name"]).index
+                vertex_index = vertex.index
                 graph.vs[vertex_index]["color"] = cluster_index
         cluster_index += 1
 
@@ -254,45 +247,6 @@ def create_distance_matrix(graph):
 
             vertex_to += 1
         vertex_from += 1
-
-    distance_matrix = csr_matrix((path_weight, (vertex_from_list, vertex_to_list)))
-
-    return distance_matrix
-
-
-def distance_matrix_nx(graph):
-    """
-
-    @param graph:
-    @return:
-    """
-    path_weight = []
-    vertex_from_list = []
-    vertex_to_list = []
-    vertex_from = 0
-
-    G = nx.from_edgelist([(names[x[0]], names[x[1]][x["weight"]])
-                          for names in [graph.vs['name']]  # simply a let
-                          for x in graph.get_edgelist()], nx.Graph())
-
-    for node_1 in G.nodes():
-        vertex_to = 0
-        for node_2 in G.nodes():
-            try:
-                weight = nx.single_source_dijkstra(G, node_1, target=node_2, cutoff=1, weight='weight')
-                vertex_from_list.append(vertex_from)
-                vertex_to_list.append(vertex_to)
-                path_weight.append(weight)
-            except:
-                vertex_from_list.append(vertex_from)
-                vertex_to_list.append(vertex_to)
-                path_weight.append(1)
-
-        vertex_to += 1
-    vertex_from += 1
-    print(vertex_to_list)
-    print(vertex_from_list)
-    print(path_weight)
 
     distance_matrix = csr_matrix((path_weight, (vertex_from_list, vertex_to_list)))
 

@@ -30,19 +30,22 @@ def min_cuts(graph):
     return graph
 
 
-def delete_edges_below_threshold(graph, threshold):
+def delete_edges_below_threshold(graph, threshold, delete_single_nodes):
     """
     Deletes all edges, of the given graph, below a certain threshold.
     weight
+    @param delete_single_nodes: Boolean to delete vertices with degree=0.
     @param graph: The graph, igraph object.
     @param threshold: Float number for the threshold, every edge with weight < threshold is deleted.
     @return: The graph without all edges with edge weight < threshold.
     """
 
+    # delete all edges with less then the threshold
     graph.es.select(weight_le=threshold).delete()
 
     # delete all vertices with no connection
-    #graph.vs.select(_degree=0).delete()
+    if delete_single_nodes:
+        graph.vs.select(_degree=0).delete()
 
     return graph
 
@@ -94,33 +97,44 @@ def hdbscan_outlier(graph, threshold, plot_on_off):
     @param graph: The graph on which the outliers should be detected. Needs attribute graph.es["weight"].
     @return: The graph without the outlier vertices and all multiple edges combined into single connections by max weight.    """
 
-    inverted_weights = [1 - edge_weight for edge_weight in graph.es["weight"]]
-    graph.es["weight"] = inverted_weights
+    # check if density outlier score can be calculated
+    if graph.average_path_length(directed=False, unconn=False) != np.inf:
+        inverted_weights = [1 - edge_weight for edge_weight in graph.es["weight"]]
+        graph.es["weight"] = inverted_weights
 
-    #distance_matrix = mcc.create_distance_matrix(graph)
-    distance_matrix = mcc.distance_matrix_nx(graph)
-    #distance_matrix = graph.get_adjacency_sparse(attribute="weight")
-    clusterer = hdbscan.HDBSCAN(metric="precomputed").fit(distance_matrix)
+        distance_matrix = mcc.create_distance_matrix(graph)
+        # distance_matrix = graph.get_adjacency_sparse(attribute="weight")
+        clusterer = hdbscan.HDBSCAN(metric="precomputed").fit(distance_matrix)
 
-    if plot_on_off:
-        # hdbscan density plot
-        sns.displot(clusterer.outlier_scores_[np.isfinite(clusterer.outlier_scores_)], rug=True)
-        plt.show()
+        # hdbscan outlier detection
+        # https://hdbscan.readthedocs.io/en/latest/outlier_detection.html
+        threshold = pd.Series(clusterer.outlier_scores_).quantile(1 - threshold)
+        outliers = np.where(clusterer.outlier_scores_ > threshold)[0]
 
-        # hdbscan tree plot
-        clusterer.condensed_tree_.plot(select_clusters=True,
-                                       selection_palette=sns.color_palette('deep', 8))
-        plt.show()
+        if plot_on_off:
+            # hdbscan density plot
+            sns.displot(clusterer.outlier_scores_[np.isfinite(clusterer.outlier_scores_)], rug=True)
+            plt.show()
 
-    # hdbscan outlier detection
-    # https://hdbscan.readthedocs.io/en/latest/outlier_detection.html
-    threshold = pd.Series(clusterer.outlier_scores_).quantile(1 - threshold)
-    outliers = np.where(clusterer.outlier_scores_ > threshold)[0]
+            # hdbscan tree plot
+            clusterer.condensed_tree_.plot(select_clusters=True,
+                                           selection_palette=sns.color_palette('deep', 8))
+            plt.show()
 
-    graph.delete_vertices(outliers)
-    graph.simplify(multiple=True, loops=True, combine_edges=max)
+            color = ig.drawing.colors.ClusterColoringPalette(2)
+            for vertex in graph.vs:
+                if vertex.index in outliers:
+                    vertex["color"] = color[0]
+                else:
+                    vertex["color"] = color[1]
+            ig.plot(graph, vertex_color=graph.vs["color"])
 
-    inverted_weights = [1 - edge_weight for edge_weight in graph.es["weight"]]
-    graph.es["weight"] = inverted_weights
+        # delete outliers and merge multiple edges and delete loops
+        graph.delete_vertices(outliers)
+        graph.simplify(multiple=True, loops=True, combine_edges=max)
+
+        # assign weights back to similarity
+        inverted_weights = [1 - edge_weight for edge_weight in graph.es["weight"]]
+        graph.es["weight"] = inverted_weights
 
     return graph

@@ -9,8 +9,62 @@ from bokeh.io import show, output_file
 from bokeh.transform import linear_cmap, LogColorMapper
 from bokeh.palettes import plasma, Plasma256
 from pathlib import Path
+from matplotlib import cm
+from matplotlib import colors as col
+import multires_consensus_clustering as mcc
+import pandas as pd
+import numpy as np
 
 HERE = Path(__file__).parent.parent
+
+
+def interactive_plot(adata_s2d1, clustering_data, graph, create_upsetplot, create_edge_weight_barchart, layout_option):
+    """
+    Uses the adata to build an interactive plot with bokeh.
+
+    @param clustering_data: Th clustering data as a pandas dataframe.
+    @param adata_s2d1: The selected adata data set.
+    @param layout_option: The layout for the graph, can be "hierarchy" -> layout based on vertex level.
+        Else: iGraph auto layout
+    @param graph: The graph on which the plot is based.
+    @param create_upsetplot: Boolean variable to turn the upsetplot on or off; "True"/"False"
+    @param create_edge_weight_barchart: Boolean variable to turn the edge weight barchart on or off; "True"/"False"
+    """
+
+    # creates a pandas df with the probabilities of a cell being in a specific node
+    # if the graph is a mulit graph, the nodes already have the probability as an attribute
+    if "probability_df" in graph.vs.attribute_names():
+        df_cell_probability = pd.DataFrame()
+        i = 0
+
+        # the first node also has the cell index of the probability as an attribute
+        df_cell_probability["cell"] = graph.vs[0]["cell_index"]
+
+        # convert vertex attributes back to df
+        for vertex in graph.vs:
+            df_cell_probability["merged_node_" + str(i)] = vertex["probability_df"]
+            i += 1
+
+        # replace index
+        df_cell_probability.set_index("cell", inplace=True)
+
+    # otherwise the probability df is created
+    else:
+        df_cell_probability = mcc.graph_nodes_cells_to_df(graph, clustering_data)
+
+    # create an bar-chart with all edge weights
+    if create_edge_weight_barchart:
+        mcc.plot_edge_weights(graph, plot_on_off=True)
+
+    # create an upsetplot for the data
+    if create_upsetplot:
+        mcc.upsetplot_graph_nodes(df_cell_probability)
+
+    # create the cluster plots from the adata and adds the images to the graph
+    graph = mcc.umap_plot(df_cell_probability, adata_s2d1, graph)
+
+    # plots an interactive graph using bokeh and an upset plot showing how the cells are distributed
+    mcc.plot_interactive_graph(graph, df_cell_probability, layout_option)
 
 
 def plot_interactive_graph(G, df_cell_probability, layout_option):
@@ -97,10 +151,21 @@ def plot_interactive_graph(G, df_cell_probability, layout_option):
     )
     plot_graph.add_tools(node_hover)
 
-    # assign color and form to nodes in network render_graph
+
+    cmap = plt.get_cmap("plasma")
+    cNorm = col.Normalize(vmin=min(number_cells_node), vmax=max(number_cells_node))
+    scalarMap = cm.ScalarMappable(norm=cNorm, cmap=cmap)
+    norm = cNorm(number_cells_node)
+
+
+    pallet = [
+        '#%02x%02x%02x' % (r, g, b) for r, g, b, _ in scalarMap.to_rgba(norm, bytes=True, norm=False)
+    ]
+
+    # assign color and size to nodes in network render_graph
     render_graph.node_renderer.glyph = Circle(size=20,
                                               fill_color=linear_cmap('number_cells_node',
-                                                                     plasma(len(number_cells_node)),
+                                                                     plasma(256),
                                                                      min(number_cells_node), max(number_cells_node)))
 
     # add the edges to the network graph
@@ -125,7 +190,7 @@ def plot_interactive_graph(G, df_cell_probability, layout_option):
     # render the render_graph
     plot_graph.renderers.append(render_graph)
 
-    color_mapper = LogColorMapper(palette="Plasma256", low=min(number_cells_node), high=max(number_cells_node))
+    color_mapper = LogColorMapper(palette=Plasma256, low=min(number_cells_node), high=max(number_cells_node))
     color_bar = ColorBar(color_mapper=color_mapper, label_standoff=12)
     plot_graph.add_layout(color_bar, 'right')
 

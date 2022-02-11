@@ -3,8 +3,60 @@ import igraph as ig
 import numpy as np
 import pandas as pd
 import itertools
+import multires_consensus_clustering as mcc
 import seaborn as sns
 from multires_consensus_clustering import binning
+
+
+def meta_graph(clustering_data, settings_data, bin):
+    """
+    Uses the Meta Graph script to build the graph from the sc data.
+
+    @param clustering_data:
+    @param settings_data:
+    @param bin:
+    @return: The meta graph; "graph" an igraph object graph.
+    """
+
+    # binning the clusterings in bins close to the given numbers, combines all bins contained in the list
+    number_of_clusters_data = sort_by_number_clusters(settings=settings_data, data=clustering_data,
+                                                         number_of_clusters_list=bin)
+
+    # builds the graph from the bins
+    graph = build_graph(number_of_clusters_data, clustering_data)
+
+    # delete all edges below threshold
+    # graph = mcc.delete_edges_below_threshold(graph, 0.5)
+
+    # get average edge weight
+    #mean_edge_value = mcc.plot_edge_weights(graph, plot_on_off=False)
+
+    # delete all nodes with zero degree
+    # graph = mcc.delete_nodes_with_zero_degree(graph)
+
+    # find outliers using hdbscan
+    #print("Bin: ", bin)
+    #graph = mcc.hdbscan_outlier(graph, mean_edge_value, plot_on_off=False)
+
+    # builds a consensus graph by taking different graphs clustering them and intersecting the clusters.
+    # graph = mcc.consensus_graph(graph)
+
+    # deletes outlier communities using normalized community size.
+    # graph = mcc.delete_small_node_communities(graph)
+
+    # uses hdbscan for community detection
+    # graph = mcc.hdbscan_community_detection(graph)
+
+    # detect and merge communities in the meta graph
+    graph = mcc.igraph_community_detection(graph, detection_algorithm="louvain")
+
+    # plot the graph with iGraph
+    # ig.plot(graph)
+
+    # contract graph clustering into single node
+    graph = mcc.contract_graph(graph)
+
+    return graph
 
 
 # relabeling clusters by Isaac
@@ -105,7 +157,7 @@ def build_graph(clusters, data):
 
     # all possible combinations of clusters
     combinations_of_clusters = list(itertools.combinations(clusters.columns, 2))
-    print("Number of possible cluster combinations ", len(combinations_of_clusters))
+    # print("Number of possible clustering combinations ", len(combinations_of_clusters))
 
     vertex_labels = []
     vertex_cluster_methode = []
@@ -142,7 +194,6 @@ def build_graph(clusters, data):
                 cell_data = data["cell"].iloc[index_cluster_0].values
                 vertex_cells.append(list(cell_data))
 
-
             # check if node for cluster_1 is already in the graph
             if not (edge_end in vertex_labels):
                 G.add_vertices(edge_end)
@@ -177,8 +228,8 @@ def sort_by_number_clusters(settings, data, number_of_clusters_list):
     Afterwards turns the number_of_clusters in each bin into a list of lables of the clusters.
 
     :param settings: Setting data from the sc clustering as a pandas df.
-    :param data: Clutering data from the sc data as a pandas df.
-    :param number_of_clusters: The number of clusters which should be binned together, either an int or a list.
+    :param data: Clustering data from the sc data as a pandas df.
+    :param number_of_clusters_list: The number of clusters which should be binned together, either an int or a list.
     :return: Returns a list of the clusterings binned by the number of clusters, e.g. [C001, C002, ...].
     """
 
@@ -187,10 +238,27 @@ def sort_by_number_clusters(settings, data, number_of_clusters_list):
     # binning function by Luke Zappia, returns list of lists, e.g. [[2], [3,4], ..]
     bins_clusterings = binning.bin_n_clusters(settings["n_clusters"])
 
-    if type(number_of_clusters_list) == int:
+    # if number_of_clusters_list == [4,5, .. ] a list of bins return the labels based on the closest bins
+    if type(number_of_clusters_list) == list:
 
-        # number_of_clusters_list is a single cluster given as an int
-        number_of_clusters = number_of_clusters_list
+        # remove all duplicates
+        number_of_clusters_list = list(set(number_of_clusters_list))
+
+        for number_of_clusters in number_of_clusters_list:
+            # finds the closest bin to any given number_of_clusters and returns the bins index
+            best_bin = min(range(len(bins_clusterings)), key=lambda i:
+            abs(bins_clusterings[i][0] + bins_clusterings[i][-1] - 2 * number_of_clusters))
+
+            # selects the bin
+            number_of_clusters_closest = bins_clusterings[best_bin]
+
+            # find all clusterings contain in the bin by number_of_clusters
+            list_of_clusterings.extend(
+                settings.loc[settings['n_clusters'].isin(number_of_clusters_closest)]["id"].values)
+    # number_of_clusters_list is a single cluster given as an int or np.int64
+    else:
+        # convert to int
+        number_of_clusters = int(number_of_clusters_list)
 
         # finds the closest bin to any given number_of_clusters and returns the bins index
         best_bin = min(range(len(bins_clusterings)), key=lambda i:
@@ -202,25 +270,5 @@ def sort_by_number_clusters(settings, data, number_of_clusters_list):
         # find all clusterings contain in the bin by number_of_clusters
         list_of_clusterings.extend(settings.loc[settings['n_clusters'].isin(number_of_clusters_closest)]["id"].values)
 
-    # if number_of_clusters_list == [4,5, .. ] a list of bins return the labels based on the closest bins
-    if type(number_of_clusters_list) == list:
-
-        # remove all duplicates
-        number_of_clusters_list = list(set(number_of_clusters_list))
-
-        for number_of_clusters in number_of_clusters_list:
-
-            # finds the closest bin to any given number_of_clusters and returns the bins index
-            best_bin = min(range(len(bins_clusterings)), key=lambda i:
-                abs(bins_clusterings[i][0]+bins_clusterings[i][-1] - 2 * number_of_clusters))
-
-            # selects the bin
-            number_of_clusters_closest = bins_clusterings[best_bin]
-
-            # find all clusterings contain in the bin by number_of_clusters
-            list_of_clusterings.extend(settings.loc[settings['n_clusters'].isin(number_of_clusters_closest)]["id"].values)
-
     # return the list with all clusterings
     return data[list_of_clusterings]
-
-
