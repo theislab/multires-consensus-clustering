@@ -29,7 +29,7 @@ def run_multires_consensus_clustering(clustering_data, settings_data, adata, plo
     # interactive_plot(meta_graph, create_upsetplot=False, create_edge_weight_barchart=False, graph_hierarchy="auto")
 
     # multi resolution meta graph
-    multires_graph = mcc.multiresolution_graph(clustering_data, settings_data, "all", neighbour_based=True)
+    multires_graph = mcc.multiresolution_graph(clustering_data, settings_data, "all", neighbour_based=False)
     print("Multi-graph-build done, Time:", time.time() - start)
 
     # community detection

@@ -1,3 +1,5 @@
+import time
+
 import multires_consensus_clustering as mcc
 import numpy as np
 import pandas as pd
@@ -92,7 +94,7 @@ def merge_two_resolution_graphs(graph_1, graph_2, current_level, neighbours, clu
     Merges two graphs;
     Either connects all vertices or only the bins neighbouring each other. All edges are based on the jaccard-index.
 
-    @param clustering_data:
+    @param clustering_data: The clustering data from which the meta graphs are build.
     @param neighbours: Connects all vertices or only neighbouring resolutions; Boolean
     @param current_level: The level of the last added vertices.
         Need so the new vertices are only connected to the latest vertices and not all.
@@ -101,11 +103,11 @@ def merge_two_resolution_graphs(graph_1, graph_2, current_level, neighbours, clu
     @return: The merged graph.
     """
 
-    """
+
     # to check the graph merger visually
     graph_1.vs["graph"] = [1] * graph_1.vcount()
     graph_2.vs["graph"] = [2] * graph_2.vcount()
-    """
+
 
     # add cell probability to the second graph with is added in the new layer (level)
     probability_df = mcc.graph_nodes_cells_to_df(graph_2, clustering_data)
@@ -116,8 +118,8 @@ def merge_two_resolution_graphs(graph_1, graph_2, current_level, neighbours, clu
 
     # connects vertices based on neighbouring resolutions.
     if neighbours:
-        for vertex_1 in graph.vs:
-            for vertex_2 in graph.vs:
+        for vertex_1 in graph.vs.select(graph=1):
+            for vertex_2 in graph.vs.select(graph=2):
                 # connects only bins next to each other
                 if vertex_1["level"] == current_level and vertex_2["level"] == current_level - 1:
                     # calculate edge weight
@@ -132,18 +134,17 @@ def merge_two_resolution_graphs(graph_1, graph_2, current_level, neighbours, clu
 
     # connects all vertices
     else:
-        for vertex_1 in graph.vs:
-            for vertex_2 in graph.vs:
-                if vertex_1 != vertex_2:
-                    # calculate edge weight
-                    # edge_weight = mcc.jaccard_index_two_vertices(vertex_1, vertex_2)
-                    edge_weight = mcc.weighted_jaccard(vertex_1["probability_df"], vertex_2["probability_df"])
+        for vertex_1 in graph.vs.select(graph=1):
+            for vertex_2 in graph.vs.select(graph=2):
+                # calculate edge weight
+                # edge_weight = mcc.jaccard_index_two_vertices(vertex_1, vertex_2)
+                edge_weight = mcc.weighted_jaccard(vertex_1["probability_df"], vertex_2["probability_df"])
 
-                    # if the edge_weight is greater 0 the edge is added
-                    if edge_weight != 0:
-                        index_1 = graph.vs.find(name=vertex_1["name"]).index
-                        index_2 = graph.vs.find(name=vertex_2["name"]).index
-                        graph.add_edge(index_1, index_2, weight=edge_weight)
+                # if the edge_weight is greater 0 the edge is added
+                if edge_weight != 0:
+                    index_1 = graph.vs.find(name=vertex_1["name"]).index
+                    index_2 = graph.vs.find(name=vertex_2["name"]).index
+                    graph.add_edge(index_1, index_2, weight=edge_weight)
 
     """
     # to check the graph merger visually 
