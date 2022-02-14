@@ -13,6 +13,12 @@ from matplotlib import cm
 from matplotlib import colors as col
 import multires_consensus_clustering as mcc
 import pandas as pd
+import base64
+from io import BytesIO
+import matplotlib as mpl
+from matplotlib import cm
+import matplotlib.pyplot as plt
+import scanpy as sc
 import numpy as np
 
 HERE = Path(__file__).parent.parent
@@ -220,3 +226,32 @@ def upsetplot_graph_nodes(df_cell_probability):
     plot(cell_in_node_size_upset)
 
     plt.show()
+
+
+def umap_plot(df_cell_probability, adata, graph):
+    """
+    Uses the umap from scanpy to plot the probability of the cells being in one node. These range from 0 to 1.
+    Saves the plot in directory plots und the node_names.
+
+    @param df_cell_probability: Pandas dataframe with all cells from the clustering (as rows) and merged nodes as columns,
+        values of the dataframe are the probabilities of the cell being in the merged node, range 0 to 1.
+    @param adata: The original adata set, used for the layout of the plot.
+    """
+
+    # creates a plot for every merged node in the dataframe and adds the plot to the graph under G.vs["img"]
+    # uses the code from Isaac for the encoding of the image
+    # https://github.com/ivirshup/constclust/blob/6b7ef2773a3332beccd1de8774b16f3727321510/constclust/clustree.py#L223
+    plot_list = []
+    for columns in df_cell_probability.columns:
+        adata.obs['probability_cell_in_node'] = df_cell_probability[columns]
+        file = columns + ".png"
+        plot = sc.pl.umap(adata, color='probability_cell_in_node', show=False)
+        with BytesIO() as buf:
+            plot.figure.savefig(buf, format="png", dpi=50)
+            buf.seek(0)
+            byte_image = base64.b64encode(buf.read())
+        encode_image = byte_image.decode("utf-8")
+        plot_list.append(f'<img src="data:image/png;base64,{encode_image}"/>')
+
+    graph.vs["img"] = plot_list
+    return graph

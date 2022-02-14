@@ -3,11 +3,7 @@ import scanpy as sc
 import pandas as pd
 import numpy as np
 from pathlib import Path
-import base64
-from io import BytesIO
-import matplotlib as mpl
-from matplotlib import cm
-import matplotlib.pyplot as plt
+
 
 HERE = Path(__file__).parent.parent
 
@@ -25,29 +21,32 @@ def graph_nodes_cells_to_df(graph, clustering_data):
     for merged_vertices in graph.vs["cell"]:
         label_list.append(sum(merged_vertices, []))
 
-    i = 0
-    list_df_nodes = []
+    # create df for the probability values
+    graph_df = pd.DataFrame()
+    graph_df["cell"] = clustering_data["cell"]
+    graph_df.set_index("cell", inplace=True)
 
+    vertex_index = 0
     for merged_node in label_list:
         # count cells
-        values, counts = np.unique(merged_node, return_counts=True)
+        cell_names_vertex, counts = np.unique(merged_node, return_counts=True)
         # calculate the probability
-        counts = counts / len(graph.vs[i]["name"])
-        # create a df
-        list_df_nodes.append(pd.DataFrame({"cell": values, 'merged_node_' + str(i): counts}))
+        counts = counts / len(graph.vs[vertex_index]["name"])
 
-        i += 1
+        # creates new column in df
+        df_probabilities_vertex = pd.DataFrame({'cell': cell_names_vertex,
+                            'merged_node_' + str(vertex_index): counts})
+        df_probabilities_vertex.set_index("cell", inplace=True)
 
-    # merge all node df into a single dataframe
-    all_cell_counts = pd.DataFrame()
-    for cell_df in list_df_nodes:
-        all_cell_counts = pd.concat([all_cell_counts, cell_df])
+        # assigns the values to the cells
+        graph_df = pd.concat([graph_df, df_probabilities_vertex], axis=1)
 
-    # replace NaN values with 0
-    all_cell_counts.fillna(0)
+        vertex_index +=1
 
-    all_cell_counts = all_cell_counts.groupby(['cell']).sum()
-    return all_cell_counts
+    # change NaN values to 0
+    graph_df = graph_df.fillna(0)
+
+    return graph_df
 
 
 def single_node_to_df(vertex, clustering_data):
@@ -58,20 +57,31 @@ def single_node_to_df(vertex, clustering_data):
     @param clustering_data: The clustering data, type pandas.dataframe, e.g. cell, C001, C002, ...
     @return: Return a pandas dataframe with cells as index and probability sorted by node.
     """
-    cluster_cell_list = []
-    for cell_list in vertex["cell"]:
-        cluster_cell_list = cell_list + cluster_cell_list
+    # create list with all cell names in vertex
+    cluster_cell_list = sum(vertex["cell"], [])
 
-    cell_names = pd.DataFrame(clustering_data["cell"])
+    # create df for the probability values
+    graph_df = pd.DataFrame()
+    graph_df["cell"] = clustering_data["cell"]
+    graph_df.set_index("cell", inplace=True)
 
-    values, counts = np.unique(cluster_cell_list, return_counts=True)
+    # count cells
+    cell_names_vertex, counts = np.unique(cluster_cell_list, return_counts=True)
+    # calculate the probability
     counts = counts / len(vertex["name"])
-    node_cell_count = pd.DataFrame({"cell": values, 'merged_node': counts})
-    merged_cell_count = pd.concat([cell_names.set_index("cell"), node_cell_count.set_index("cell")], axis=1)
 
-    all_cell_counts = merged_cell_count.groupby(['cell']).sum()
+    # creates new column in df
+    df_probabilities_vertex = pd.DataFrame({'cell': cell_names_vertex,
+                                            'merged_node': counts})
+    df_probabilities_vertex.set_index("cell", inplace=True)
 
-    return all_cell_counts
+    # assigns the values to the cells
+    graph_df = pd.concat([graph_df, df_probabilities_vertex], axis=1)
+
+    # change NaN values to 0
+    graph_df = graph_df.fillna(0)
+
+    return graph_df
 
 
 def relabel_cell(df_cell_probability, adata_s2d1):
@@ -89,9 +99,6 @@ def relabel_cell(df_cell_probability, adata_s2d1):
     cell_index_counter = 0
     cell_index = adata_s2d1.obs["cell_type"].index
 
-    print("len adata_s2d1 cell_type: ", len(adata_s2d1.obs["cell_type"]))
-    print("len dataframe multires-consensus-clustering: ", len(df_cell_probability))
-
     labels_not_in_adata = set(df_cell_probability.index) - set(adata_s2d1.obs["cell_type"].index)
 
     for cell_name in adata_s2d1.obs["cell_type"]:
@@ -105,39 +112,7 @@ def relabel_cell(df_cell_probability, adata_s2d1):
 
     df_cell_probability = df_cell_probability.groupby(['cell']).sum()
 
-    # pd.set_option('display.max_rows', None)
-    print(df_cell_probability)
-
     return df_cell_probability
-
-
-def umap_plot(df_cell_probability, adata, graph):
-    """
-    Uses the umap from scanpy to plot the probability of the cells being in one node. These range from 0 to 1.
-    Saves the plot in directory plots und the node_names.
-
-    @param df_cell_probability: Pandas dataframe with all cells from the clustering (as rows) and merged nodes as columns,
-        values of the dataframe are the probabilities of the cell being in the merged node, range 0 to 1.
-    @param adata: The original adata set, used for the layout of the plot.
-    """
-
-    # creates a plot for every merged node in the dataframe and adds the plot to the graph under G.vs["img"]
-    # uses the code from Isaac for the encoding of the image
-    # https://github.com/ivirshup/constclust/blob/6b7ef2773a3332beccd1de8774b16f3727321510/constclust/clustree.py#L223
-    plot_list = []
-    for columns in df_cell_probability.columns:
-        adata.obs['probability_cell_in_node'] = df_cell_probability[columns]
-        file = columns + ".png"
-        plot = sc.pl.umap(adata, color='probability_cell_in_node', show=False)
-        with BytesIO() as buf:
-            plot.figure.savefig(buf, format="png", dpi=50)
-            buf.seek(0)
-            byte_image = base64.b64encode(buf.read())
-        encode_image = byte_image.decode("utf-8")
-        plot_list.append(f'<img src="data:image/png;base64,{encode_image}"/>')
-
-    graph.vs["img"] = plot_list
-    return graph
 
 
 def assign_cluster_to_cell(df_cell_probability):
@@ -167,7 +142,6 @@ def assign_cluster_to_cell(df_cell_probability):
                 df_cell_clusters.iat[index_row, 1] = str(cluster_label)
             index_row += 1
         cluster_label += 1
-
 
     print("Certainty cluster labels:", df_cell_clusters["probability"].sum() / len(df_cell_clusters))
 
@@ -239,7 +213,7 @@ def select_resolution_nodes(graph, resolution_level):
             if number_edge_vertex == 1:
                 # the end of a branch (of the tree) has only one edge in/out
                 # -> the target of the edge is the lowest node of the branch
-               list_selected_nodes.append(graph.vs[all_edges_vertex[0].target])
+                list_selected_nodes.append(graph.vs[all_edges_vertex[0].target])
 
         elif resolution_level == -1:
             # chooses the source of the edge instead of the target to get the second lowest
@@ -251,10 +225,9 @@ def select_resolution_nodes(graph, resolution_level):
 
 def true_labels(labels_df, adata):
     """
-
-    @param labels_df:
-    @param adata:
-    @return:
+    Assigns the 'true' labels to the adata plot based on the labels_df provided.
+    @param labels_df: Dataframe containg the "true" labels, for benachmark data with provided labels.
+    @param adata: The single cell data, as an adata file.
     """
 
     label_dict = dict(zip(labels_df["cell"], labels_df["cell_type"]))
@@ -266,3 +239,51 @@ def true_labels(labels_df, adata):
 
     plot = sc.pl.umap(adata, color=["true_labels"], show=True)
 
+
+def best_prob_cell_labels(graph, adata):
+    """
+    Iterates through all nodes to find the best probability tho assign a cell label,
+        if the probabilities are equal chooses the highest resolution.
+    @param graph: The graph from which the probabilies are generated, iGraph.
+    @return: The clustering labels.
+    """
+    len_df = len(graph.vs[0]["probability_df"])
+    df_cell_clusters = pd.DataFrame({
+        'cell': graph.vs[0]["cell_index"],
+        'probability': pd.Series([-1] * len_df, dtype='float'),
+        'cluster_labels': [str(0)] * len_df,
+        'level_cluster_label': [np.inf] * len_df,
+    })
+
+    cluster_label_index = 0
+    for vertex in graph.vs:
+        vertex_probabilities = vertex["probability_df"]
+        for index_df in range(len_df):
+            probability_cell_vertex = vertex_probabilities[index_df]
+            probability_cell_label_df = df_cell_clusters.iat[index_df, 1]
+            vertex_level = vertex["level"]
+
+            # choose the best probability for the cluster out of all vertices
+            if probability_cell_label_df < probability_cell_vertex:
+                df_cell_clusters.iat[index_df, 1] = probability_cell_vertex
+                df_cell_clusters.iat[index_df, 2] = str(cluster_label_index)
+                df_cell_clusters.iat[index_df, 3] = vertex_level
+
+            # if they are the same choose the highest resolution
+            elif probability_cell_label_df == probability_cell_vertex:
+                df_cell_clusters.iat[index_df, 2] = str(cluster_label_index)
+                df_cell_clusters.iat[index_df, 3] = vertex_level
+
+        cluster_label_index += 1
+
+    # replace index with cell names
+    df_cell_clusters.set_index("cell", inplace=True)
+
+    # plot labels
+    adata.obs["meta_clusters"] = df_cell_clusters["cluster_labels"]
+    number_clusters = np.unique(df_cell_clusters["cluster_labels"].values)
+    print("The graph has ", len(number_clusters) + 1, "clusters")
+
+    plot = sc.pl.umap(adata, color=["meta_clusters"], show=True)
+
+    return df_cell_clusters["cluster_labels"]

@@ -77,7 +77,6 @@ def multiresolution_graph(clustering_data, settings_data, list_resolutions, neig
         return resolution_1
 
 
-
 def delete_edges_single_resolution(graph):
     """
     Deletes all edges with an edge weight above 0 -> these are all edges of the graph.
@@ -86,29 +85,6 @@ def delete_edges_single_resolution(graph):
     """
 
     return graph.es.select(weight_gt=0).delete()
-
-
-def jaccard_index_two_vertices(vertex_1, vertex_2):
-    """
-    Calculates the jaccard index based on the included cells in a vertex.
-
-    @param vertex_1: iGraph vertex object. Needs attribute cell; vertex_1["cell"]
-    @param vertex_2: iGraph vertex object. Needs attribute cell; vertex_1["cell"]
-    @return: The calculated jaccard index.
-    """
-
-    # creates sets based on the vertex attribute cell
-    set_1 = set(sum(vertex_1["cell"], []))
-    set_2 = set(sum(vertex_2["cell"], []))
-
-    # intersection and union for the jaccard index
-    intersection = set_1.intersection(set_2)
-    union = set_1.union(set_2)
-
-    # calculate the jaccard index
-    jaccard = len(intersection) / len(union)
-
-    return jaccard
 
 
 def merge_two_resolution_graphs(graph_1, graph_2, current_level, neighbours, clustering_data):
@@ -144,7 +120,8 @@ def merge_two_resolution_graphs(graph_1, graph_2, current_level, neighbours, clu
             for vertex_2 in graph.vs:
                 # connects only bins next to each other
                 if vertex_1["level"] == current_level and vertex_2["level"] == current_level - 1:
-                    # edge_weight = jaccard_index_two_vertices(vertex_1, vertex_2)
+                    # calculate edge weight
+                    # edge_weight = mcc.jaccard_index_two_vertices(vertex_1, vertex_2)
                     edge_weight = mcc.weighted_jaccard(vertex_1["probability_df"], vertex_2["probability_df"])
 
                     # if the edge_weight is greater 0 the edge is added
@@ -155,16 +132,18 @@ def merge_two_resolution_graphs(graph_1, graph_2, current_level, neighbours, clu
 
     # connects all vertices
     else:
-        for vertex_1 in graph_1.vs:
-            for vertex_2 in graph_2.vs:
-                # edge_weight = jaccard_index_two_vertices(vertex_1, vertex_2)
-                edge_weight = mcc.weighted_jaccard(vertex_1["probability_df"], vertex_2["probability_df"])
+        for vertex_1 in graph.vs:
+            for vertex_2 in graph.vs:
+                if vertex_1 != vertex_2:
+                    # calculate edge weight
+                    # edge_weight = mcc.jaccard_index_two_vertices(vertex_1, vertex_2)
+                    edge_weight = mcc.weighted_jaccard(vertex_1["probability_df"], vertex_2["probability_df"])
 
-                # if the edge_weight is greater 0 the edge is added
-                if edge_weight != 0:
-                    index_1 = graph.vs.find(name=vertex_1["name"]).index
-                    index_2 = graph.vs.find(name=vertex_2["name"]).index
-                    graph.add_edge(index_1, index_2, weight=edge_weight)
+                    # if the edge_weight is greater 0 the edge is added
+                    if edge_weight != 0:
+                        index_1 = graph.vs.find(name=vertex_1["name"]).index
+                        index_2 = graph.vs.find(name=vertex_2["name"]).index
+                        graph.add_edge(index_1, index_2, weight=edge_weight)
 
     """
     # to check the graph merger visually 
@@ -196,9 +175,9 @@ def reconnect_graph(graph):
             if vertex_1 != vertex_2:
                 # connects only bins next to each other
                 if vertex_2["level"] < level_vertex_1:
-
-                    edge_weight = jaccard_index_two_vertices(vertex_1, vertex_2)
-                    # edge_weight = mcc.weighted_jaccard(vertex_1["probability_df"], vertex_2["probability_df"])
+                    # calculate edge weight
+                    # edge_weight = mcc.jaccard_index_two_vertices(vertex_1, vertex_2)
+                    edge_weight = mcc.weighted_jaccard(vertex_1["probability_df"], vertex_2["probability_df"])
 
                     # if the edge_weight is greater 0 the edge is added
                     if edge_weight != 0:
@@ -214,15 +193,16 @@ def reconnect_graph(graph):
                         edges_to_delete = []
                         current_best_weight = 0
                         current_best_edge = None
-                        lowest_resolution = np.inf
 
                         for edge in edge_list_vertex_2:
                             edges_to_delete.append(edge)
                             edge_weight = edge["weight"]
 
+                            # only check edge going from a lower resolution to a higher resolution -> tree structure
                             if graph.vs[edge.target]["level"] < vertex_2["level"]:
                                 edges_to_delete.pop(len(edges_to_delete) - 1)
                             else:
+                                # choose the edge with the best edge weight
                                 if edge_weight > current_best_weight:
                                     edges_to_delete.pop(len(edges_to_delete) - 1)
                                     if current_best_edge is not None:
@@ -230,78 +210,76 @@ def reconnect_graph(graph):
                                     current_best_weight = edge_weight
                                     current_best_edge = edge
 
+                                # if the edges have the same edge weight choose the higher resolution one
+                                elif edge_weight == current_best_weight:
+                                    last_edge = edges_to_delete.pop(len(edges_to_delete) - 1)
+                                    if graph.vs[last_edge.target]["level"] > graph.vs[edge.target]["level"]:
+                                        edges_to_delete.append(last_edge)
+                                    else:
+                                        edges_to_delete.append(edge)
+
+
                         graph.delete_edges(edges_to_delete)
 
     return graph
 
 
-def component_merger(graph, reconnect_graph, combine_by):
+def component_merger(graph, reconnect_graph_true_false, combine_by, threshold_edges_to_delete):
     """
     If the graph is split into different components merges the components and takes the average of the attributes
     or the first attribute.
 
+    @param threshold_edges_to_delete: Integer between 0 and 1 to te the limit on what edge weights the edges are deleted.
     @param combine_by: Comines by "list" or first node attribute otherwise.
-    @param reconnect_graph: True or False parameter, reconnects the components.
+    @param reconnect_graph_true_false: True or False parameter, reconnects the components.
     @param graph: The graph on which the function works, iGraph graph.
     @return: The merged graph, iGraph graph.
     """
+
+    graph = mcc.delete_edges_below_threshold(graph, 0.8, delete_single_nodes=False)
 
     # merge components
     graph_component = graph.clusters()
 
     if combine_by == "list":
-        # combine strings of nodes by components and take attributes by list
-        graph = graph_component.cluster_graph(combine_vertices=list, combine_edges=max)
-
-        # assign attributes after merging by list
-        for vertex in graph.vs:
-            probability_df_sum = vertex["probability_df"][0]
-            number_of_dfs = len(vertex["probability_df"])
-
-            # add elements of all probability_dfs in a vertex
-            for probability_df_list in vertex["probability_df"][1:]:
-                probability_df_sum = [element_list_1 + element_list_2 for element_list_1, element_list_2 in
-                                      zip(probability_df_sum, probability_df_list)]
-
-            # create new list of attributes for merged nodes
-            vertex["probability_df"] = [elements_df / number_of_dfs for elements_df in probability_df_sum]
-            vertex["name"] = sum(vertex["name"], [])
-            vertex["clustering"] = sum(vertex["clustering"], [])
-            vertex["cell"] = sum(vertex["cell"], [])
-            vertex["level"] = max(vertex["level"])
-            vertex["cell_index"] = vertex["cell_index"][0]
+        # uses louvain community detection to merge the graph and combines attributes to a list/average of probabilities
+        graph = mcc.merge_by_list_louvain(graph)
 
     else:
         # combine strings of nodes by components and take attributes from the first node
         graph = graph_component.cluster_graph(combine_vertices="first", combine_edges=max)
 
     # reconnect the components
-    if reconnect_graph:
+    if reconnect_graph_true_false:
         graph = reconnect_graph(graph)
 
     return graph
 
 
-def multires_community_detection(graph):
+def multires_community_detection(graph, combine_by):
     """
     Uses louvain community detection on the multi-resolution graph and creates a clustering tree with reconnect_graph.
     Optional clean up of the clustering tree with edge merging.
 
+    @param combine_by: "list" or "first" combines attributes either by list or by first
     @param graph: The mulit resolution graph, iGraph graph.
     @return: A clustering tree, igraph Graph.
     """
     # community detection
-    graph = ig.Graph.community_multilevel(graph, weights="weight").cluster_graph(combine_vertices="first",
-                                                                                 combine_edges=max)
+    if combine_by == "list":
+        # uses louvain community detection to merge the graph and combines attributes to a list/average of probabilities
+        graph = mcc.merge_by_list_louvain(graph)
+
+    else:
+        # combine strings of nodes by components and take attributes from the first node
+        graph = ig.Graph.community_multilevel(graph, weights="weight").cluster_graph(combine_vertices="first",
+                                                                                     combine_edges=max)
 
     # delete edges and create graph tree structure
     graph.es.select(weight_gt=0).delete()
     graph = reconnect_graph(graph)
 
     # clean up graph by merging some edges
-    #graph = mcc.merge_edges_weight_above_threshold(graph, threshold=0.9)
-
-    for vertex in graph.vs:
-        print(len(vertex["probability_df"]))
+    graph = mcc.merge_edges_weight_above_threshold(graph, threshold=1)
 
     return graph

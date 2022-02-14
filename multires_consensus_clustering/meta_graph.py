@@ -12,40 +12,22 @@ def meta_graph(clustering_data, settings_data, bin):
     """
     Uses the Meta Graph script to build the graph from the sc data.
 
-    @param clustering_data:
-    @param settings_data:
-    @param bin:
+    @param clustering_data: The clustering of the adata file, cells as index and cluster labels for values
+        and clustering names as column index
+    @param settings_data: The settings used for the clustering_data, number clusters, etc.
+    @param bin: The bin from which the clustering should be created, see binning.py
     @return: The meta graph; "graph" an igraph object graph.
     """
 
     # binning the clusterings in bins close to the given numbers, combines all bins contained in the list
     number_of_clusters_data = sort_by_number_clusters(settings=settings_data, data=clustering_data,
-                                                         number_of_clusters_list=bin)
+                                                      number_of_clusters_list=bin)
 
     # builds the graph from the bins
     graph = build_graph(number_of_clusters_data, clustering_data)
 
-    # delete all edges below threshold
-    # graph = mcc.delete_edges_below_threshold(graph, 0.5)
-
-    # get average edge weight
-    #mean_edge_value = mcc.plot_edge_weights(graph, plot_on_off=False)
-
-    # delete all nodes with zero degree
-    # graph = mcc.delete_nodes_with_zero_degree(graph)
-
     # find outliers using hdbscan
-    #print("Bin: ", bin)
-    #graph = mcc.hdbscan_outlier(graph, mean_edge_value, plot_on_off=False)
-
-    # builds a consensus graph by taking different graphs clustering them and intersecting the clusters.
-    # graph = mcc.consensus_graph(graph)
-
-    # deletes outlier communities using normalized community size.
-    # graph = mcc.delete_small_node_communities(graph)
-
-    # uses hdbscan for community detection
-    # graph = mcc.hdbscan_community_detection(graph)
+    graph = mcc.hdbscan_outlier(graph, 0.1, plot_on_off=False)
 
     # detect and merge communities in the meta graph
     graph = mcc.igraph_community_detection(graph, detection_algorithm="louvain")

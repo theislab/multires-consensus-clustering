@@ -7,29 +7,6 @@ import hdbscan
 import multires_consensus_clustering as mcc
 
 
-def min_cuts(graph):
-    """
-    Function for the min-cut algorithm. Separates the graph in two community by separating the edges with
-     lowest weight. Repeats the process until condition for max separations is met.
-
-
-    @param graph: The Graph on which the min-cut algorithm is performed.
-    @return: Returns the cut graph.
-    """
-    weight_normalized = np.sum(graph.es["weight"]) / graph.ecount()
-    size_partition_1 = 0
-    size_partition_2 = 1
-    cut_weight = weight_normalized - 1
-    while weight_normalized > cut_weight:
-        cut = graph.mincut(source=None, target=None, capacity="weight")
-        graph.delete_vertices(cut.partition[0])
-        size_partition_1 = len(cut.partition[0])
-        size_partition_2 = len(cut.partition[1])
-        cut_weight = cut.value
-        print(cut_weight)
-    return graph
-
-
 def delete_edges_below_threshold(graph, threshold, delete_single_nodes):
     """
     Deletes all edges, of the given graph, below a certain threshold.

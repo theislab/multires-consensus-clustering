@@ -14,7 +14,6 @@ import networkx as nx
 import seaborn as sns
 
 
-
 def igraph_community_detection(G, detection_algorithm):
     """
     Function for community detection. Uses the igraph community detection functions to partition the graph
@@ -53,35 +52,12 @@ def igraph_community_detection(G, detection_algorithm):
         # fast_greedy
         graph_list.append(ig.Graph.community_fastgreedy(G, weights="weight").as_clustering())
 
-        # infomap Martin Rosvall and Carl T. Bergstrom.
-       #graph_list.append(ig.Graph.community_infomap(G, edge_weights="weight"))
-
-        # label propagation method of Raghavan et al.
-        # graph_list.append(ig.Graph.community_label_propagation(G, weights="weight"))
-
         # newman2006
         graph_list.append(ig.Graph.community_leading_eigenvector(G, weights="weight"))
 
         # louvain, of Blondel et al.
         graph_list.append(ig.Graph.community_multilevel(G, weights="weight"))
 
-        # betweenness of the edges in the network.
-        # graph_list.append(ig.Graph.community_edge_betweenness(G, weights="weight").as_clustering())
-
-        # spinglass community detection method of Reichardt & Bornholdt.
-        # graph_list.append(ig.Graph.community_spinglass(G, weights="weight"))
-
-        # detection algorithm of Latapy & Pons, based on random walks.
-        # graph_list.append(ig.Graph.community_walktrap(G, weights="weight").as_clustering())
-
-        # community structure of the graph using the Leiden algorithm of Traag, van Eck & Waltman, to many clusters.
-        # graph = ig.Graph.community_leiden(G, weights="weight")
-
-        # ig.plot(graph)
-        # graph_list.append(ig.Graph.community_leiden(G, weights="weight"))
-        # ig.plot(graph_list[0])
-        # ig.plot(graph_list[1])
-        # ig.plot(graph_list[2])
         return graph_list
 
 
@@ -251,6 +227,61 @@ def create_distance_matrix(graph):
     distance_matrix = csr_matrix((path_weight, (vertex_from_list, vertex_to_list)))
 
     return distance_matrix
+
+
+def merge_by_list_louvain(graph):
+    """
+    Merges the vertices by list and reformat the attributes into a single list and average for the probabilities.
+
+    @param graph: The graph to be merged, iGraph with attributes as displayed below.
+    @return: The merged graph with louvain community detection and newly distributed attributes.
+    """
+    # combine strings of nodes by components and take attributes by list
+    graph = ig.Graph.community_multilevel(graph, weights="weight").cluster_graph(combine_vertices=list,
+                                                                                 combine_edges=max)
+
+    # assign attributes after merging by list
+    for vertex in graph.vs:
+        probability_df_sum = vertex["probability_df"][0]
+        number_of_dfs = len(vertex["probability_df"])
+
+        # add elements of all probability_dfs in a vertex
+        for probability_df_list in vertex["probability_df"][1:]:
+            probability_df_sum = [element_list_1 + element_list_2 for element_list_1, element_list_2 in
+                                  zip(probability_df_sum, probability_df_list)]
+
+        # create new list of attributes for merged nodes
+        vertex["probability_df"] = [elements_df / number_of_dfs for elements_df in probability_df_sum]
+        vertex["name"] = sum(vertex["name"], [])
+        vertex["clustering"] = sum(vertex["clustering"], [])
+        vertex["cell"] = sum(vertex["cell"], [])
+        vertex["level"] = max(vertex["level"])
+        vertex["cell_index"] = vertex["cell_index"][0]
+
+    return graph
+
+
+def jaccard_index_two_vertices(vertex_1, vertex_2):
+    """
+    Calculates the jaccard index based on the included cells in a vertex.
+
+    @param vertex_1: iGraph vertex object. Needs attribute cell; vertex_1["cell"]
+    @param vertex_2: iGraph vertex object. Needs attribute cell; vertex_1["cell"]
+    @return: The calculated jaccard index.
+    """
+
+    # creates sets based on the vertex attribute cell
+    set_1 = set(sum(vertex_1["cell"], []))
+    set_2 = set(sum(vertex_2["cell"], []))
+
+    # intersection and union for the jaccard index
+    intersection = set_1.intersection(set_2)
+    union = set_1.union(set_2)
+
+    # calculate the jaccard index
+    jaccard = len(intersection) / len(union)
+
+    return jaccard
 
 
 def weighted_jaccard(probability_node_1, probability_node_2):
