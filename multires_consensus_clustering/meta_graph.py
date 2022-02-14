@@ -30,7 +30,7 @@ def meta_graph(clustering_data, settings_data, bin):
     #graph = mcc.hdbscan_outlier(graph, 0.1, plot_on_off=False)
 
     # detect and merge communities in the meta graph
-    graph = mcc.igraph_community_detection(graph, detection_algorithm="louvain")
+    graph = mcc.igraph_community_detection(graph, detection_algorithm="leiden")
 
     # plot the graph with iGraph
     # ig.plot(graph)

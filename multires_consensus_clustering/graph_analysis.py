@@ -45,6 +45,13 @@ def igraph_community_detection(G, detection_algorithm):
         # ig.plot(graph)
         return graph
 
+    elif detection_algorithm == "leiden":
+        # leiden methode for graph community detection, improvement of the louvain methode
+        # https://arxiv.org/abs/1810.08473
+        graph = ig.Graph.community_leiden(G, weights="weight", objective_function="modularity", n_iterations=-1)
+        # ig.plot(graph)
+        return graph
+
     elif detection_algorithm == "all":
         # return list with vertex_clustering for all algorithms
         graph_list = []
@@ -229,7 +236,7 @@ def create_distance_matrix(graph):
     return distance_matrix
 
 
-def merge_by_list_louvain(graph):
+def merge_by_list(graph):
     """
     Merges the vertices by list and reformat the attributes into a single list and average for the probabilities.
 
@@ -237,8 +244,8 @@ def merge_by_list_louvain(graph):
     @return: The merged graph with louvain community detection and newly distributed attributes.
     """
     # combine strings of nodes by components and take attributes by list
-    graph = ig.Graph.community_multilevel(graph, weights="weight").cluster_graph(combine_vertices=list,
-                                                                                 combine_edges=max)
+    graph = ig.Graph.community_leiden(graph, weights="weight", objective_function="modularity", n_iterations=-1).cluster_graph(
+        combine_vertices=list, combine_edges=max)
 
     # assign attributes after merging by list
     for vertex in graph.vs:

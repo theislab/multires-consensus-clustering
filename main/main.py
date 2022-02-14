@@ -33,7 +33,7 @@ def run_multires_consensus_clustering(clustering_data, settings_data, adata, plo
     print("Multi-graph-build done, Time:", time.time() - start)
 
     # community detection
-    multires_graph = mcc.multires_community_detection(multires_graph, combine_by="list")
+    multires_graph = mcc.multires_community_detection(multires_graph, combine_by="first")
     print("Communities detected, Time:", time.time() - start)
 
     # plot edge weights

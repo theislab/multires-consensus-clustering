@@ -269,12 +269,12 @@ def multires_community_detection(graph, combine_by):
     # community detection
     if combine_by == "list":
         # uses louvain community detection to merge the graph and combines attributes to a list/average of probabilities
-        graph = mcc.merge_by_list_louvain(graph)
+        graph = mcc.merge_by_list(graph)
 
     else:
         # combine strings of nodes by components and take attributes from the first node
-        graph = ig.Graph.community_multilevel(graph, weights="weight").cluster_graph(combine_vertices="first",
-                                                                                     combine_edges=max)
+        graph = ig.Graph.community_leiden(graph, weights="weight", objective_function="modularity", n_iterations=-1).cluster_graph(
+            combine_vertices="first", combine_edges=max)
 
     # delete edges and create graph tree structure
     graph.es.select(weight_gt=0).delete()
