@@ -1,6 +1,6 @@
 import igraph as ig
 import numpy as np
-from multires_consensus_clustering import Meta_Graph as mg
+from multires_consensus_clustering import meta_graph as mg
 
 
 def merge_nodes(graph, node_1_indices, node_2_indices):

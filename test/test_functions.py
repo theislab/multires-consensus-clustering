@@ -1,5 +1,5 @@
 import pytest
-from multires_consensus_clustering import Meta_Graph as mg
+from multires_consensus_clustering import meta_graph as mg
 from multires_consensus_clustering import merge_nodes
 from pathlib import Path
 import numpy as np
