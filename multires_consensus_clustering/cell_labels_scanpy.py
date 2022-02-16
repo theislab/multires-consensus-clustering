@@ -46,6 +46,8 @@ def graph_nodes_cells_to_df(graph, clustering_data):
     # change NaN values to 0
     graph_df = graph_df.fillna(0)
 
+    graph.vs["cell_index"] = [clustering_data["cell"].values] * graph.vcount()
+
     return graph_df
 
 
@@ -80,6 +82,8 @@ def single_node_to_df(vertex, clustering_data):
 
     # change NaN values to 0
     graph_df = graph_df.fillna(0)
+
+    vertex["cell_index"] = clustering_data["cell"]
 
     return graph_df
 

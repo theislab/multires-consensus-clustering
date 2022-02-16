@@ -123,7 +123,6 @@ def merge_two_resolution_graphs(graph_1, graph_2, current_level, neighbours, clu
                 # connects only bins next to each other
                 if vertex_1["level"] == current_level and vertex_2["level"] == current_level - 1:
                     # calculate edge weight
-                    # edge_weight = mcc.jaccard_index_two_vertices(vertex_1, vertex_2)
                     edge_weight = mcc.weighted_jaccard(vertex_1["probability_df"], vertex_2["probability_df"])
 
                     # if the edge_weight is greater 0 the edge is added
@@ -137,26 +136,13 @@ def merge_two_resolution_graphs(graph_1, graph_2, current_level, neighbours, clu
         for vertex_1 in graph.vs.select(graph=1):
             for vertex_2 in graph.vs.select(graph=2):
                 # calculate edge weight
-                # edge_weight = mcc.jaccard_index_two_vertices(vertex_1, vertex_2)
                 edge_weight = mcc.weighted_jaccard(vertex_1["probability_df"], vertex_2["probability_df"])
 
                 # if the edge_weight is greater 0 the edge is added
                 if edge_weight != 0:
-                    index_1 = graph.vs.find(name=vertex_1["name"]).index
-                    index_2 = graph.vs.find(name=vertex_2["name"]).index
+                    index_1 = vertex_1.index
+                    index_2 = vertex_2.index
                     graph.add_edge(index_1, index_2, weight=edge_weight)
-
-    """
-    # to check the graph merger visually 
-    palette = ig.ClusterColoringPalette(2)
-    colors = [palette[index - 1] for index in graph.vs["graph"]]
-    graph.vs["color"] = colors
-    
-    ig.plot(graph)
-    """
-
-    # merge all edges with edge weight == 1
-    # graph = mcc.merge_edges_weight_1(graph)
 
     return graph
 
@@ -268,13 +254,13 @@ def multires_community_detection(graph, combine_by):
     """
     # community detection
     if combine_by == "list":
-        # uses louvain community detection to merge the graph and combines attributes to a list/average of probabilities
+        # uses leiden community detection to merge the graph and combines attributes to a list/average of probabilities
+        graph = mcc.hdbscan_community_detection(graph)
         graph = mcc.merge_by_list(graph)
 
     else:
         # combine strings of nodes by components and take attributes from the first node
-        graph = ig.Graph.community_leiden(graph, weights="weight", objective_function="modularity", n_iterations=-1).cluster_graph(
-            combine_vertices="first", combine_edges=max)
+        graph = mcc.hdbscan_community_detection(graph).cluster_graph(combine_vertices="first", combine_edges=max)
 
     # delete edges and create graph tree structure
     graph.es.select(weight_gt=0).delete()

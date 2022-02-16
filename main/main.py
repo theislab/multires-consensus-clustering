@@ -4,6 +4,7 @@ import time
 import scanpy as sc
 import pandas as pd
 import igraph as ig
+from optimzation_using_save_graphs import optimazion_saved_graphs as optimize
 
 HERE = Path(__file__).parent.parent
 
@@ -24,17 +25,18 @@ def run_multires_consensus_clustering(clustering_data, settings_data, adata, plo
     @return: The cluster labels create with this function.
     """
 
-    # single resolution meta graph
-    # meta_graph = meta_graph(clustering_data, settings_data, [4])
-    # interactive_plot(meta_graph, create_upsetplot=False, create_edge_weight_barchart=False, graph_hierarchy="auto")
-
     # multi resolution meta graph
     multires_graph = mcc.multiresolution_graph(clustering_data, settings_data, "all", neighbour_based=False)
     print("Multi-graph-build done, Time:", time.time() - start)
+    mcc.write_graph_to_file(multires_graph, neighbour_based=False)
 
     # community detection
     multires_graph = mcc.multires_community_detection(multires_graph, combine_by="first")
     print("Communities detected, Time:", time.time() - start)
+
+    # outlier detection
+    mean_edge_weight = mcc.plot_edge_weights(multires_graph, False)
+    multires_graph = mcc.hdbscan_outlier(graph=multires_graph, threshold=mean_edge_weight, plot_on_off=False)
 
     # plot edge weights
     if plot_edge_weights:
@@ -42,7 +44,6 @@ def run_multires_consensus_clustering(clustering_data, settings_data, adata, plo
 
     # plot clustering and labels
     if plot_labels:
-        #cluster_labels = mcc.graph_to_clustering(multires_graph, adata, cluster_or_probability="cluster")
         true_labels = mcc.true_labels(labels_df=mcc.read_data(HERE / "data\s2d1_labels.tsv", "all"), adata=adata_s2d1)
         cluster_labels =mcc.best_prob_cell_labels(multires_graph, adata=adata_s2d1)
 
@@ -56,8 +57,6 @@ def run_multires_consensus_clustering(clustering_data, settings_data, adata, plo
     # measure the time
     end = time.time()
     print("Time to run: ", end - start)
-
-
 
 
 # run program
@@ -75,4 +74,4 @@ if __name__ == "__main__":
     print("Read data, Time:", time.time() - start)
 
     run_multires_consensus_clustering(clustering_data, settings_data, adata=adata_s2d1, plot_edge_weights=False,
-                                      plot_labels=True, plot_interactive_graph=False)
+                                      plot_labels=False, plot_interactive_graph=False)

@@ -175,7 +175,7 @@ def hdbscan_community_detection(graph):
     # distance_matrix = create_distance_matrix(graph)
     distance_matrix = graph.get_adjacency_sparse(attribute="weight")
 
-    clusterer = hdbscan.HDBSCAN(metric="precomputed").fit(distance_matrix)
+    clusterer = hdbscan.HDBSCAN(metric="precomputed", min_samples=2).fit(distance_matrix)
     labels = clusterer.labels_
     # print(labels)
 
@@ -214,7 +214,7 @@ def create_distance_matrix(graph):
     vertex_from = 0
 
     for vertex in graph.vs:
-        list_edges_shortest_path = graph.get_shortest_paths(vertex["name"], to=None, weights="weight", mode='out',
+        list_edges_shortest_path = graph.get_shortest_paths(vertex, to=None, weights="weight", mode='out',
                                                             output="epath")
         vertex_to = 0
 
@@ -236,16 +236,15 @@ def create_distance_matrix(graph):
     return distance_matrix
 
 
-def merge_by_list(graph):
+def merge_by_list(graph_as_clustering):
     """
     Merges the vertices by list and reformat the attributes into a single list and average for the probabilities.
 
-    @param graph: The graph to be merged, iGraph with attributes as displayed below.
-    @return: The merged graph with louvain community detection and newly distributed attributes.
+    @param graph_as_clustering: An iGraph vertex clustering.
+    @return: The merged graph with newly distributed attributes.
     """
     # combine strings of nodes by components and take attributes by list
-    graph = ig.Graph.community_leiden(graph, weights="weight", objective_function="modularity", n_iterations=-1).cluster_graph(
-        combine_vertices=list, combine_edges=max)
+    graph = graph_as_clustering.cluster_graph(combine_vertices=list, combine_edges=max)
 
     # assign attributes after merging by list
     for vertex in graph.vs:
