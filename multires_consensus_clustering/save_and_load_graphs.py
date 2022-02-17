@@ -14,7 +14,7 @@ def write_graph_to_file(graph, neighbour_based):
     """
 
     # save graph to file
-    file_path = "optimzation_using_save_graphs\saved_graphs\graph_neighbour_based_" + str(neighbour_based) + ".pickle"
+    file_path = "optimization_using_saved_graphs\saved_graphs\graph_neighbour_based_" + str(neighbour_based) + ".pickle"
     file = graph.write_pickle(fname=HERE / file_path)
 
     return file
@@ -29,7 +29,7 @@ def load_graph_from_file(neighbour_based):
     """
 
     # read graph from file
-    file_path = "optimzation_using_save_graphs\saved_graphs\graph_neighbour_based_" + str(neighbour_based) + ".pickle"
+    file_path = "optimization_using_saved_graphs\saved_graphs\graph_neighbour_based_" + str(neighbour_based) + ".pickle"
     graph = ig.Graph.Read_Pickle(fname=HERE / file_path)
 
     return graph

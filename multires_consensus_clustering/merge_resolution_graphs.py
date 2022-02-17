@@ -152,7 +152,7 @@ def reconnect_graph(graph):
     """
     Reconnects the graph. Useful if after merging the graph is just a set of separated nodes.
 
-    @param graph: The graph, in the ideal case a set of discreate nodes.
+    @param graph: The graph, in the ideal case a set of discrete nodes.
     @return: The connected graph. Edges are chosen that in the end the graph has a tree structure,
         based on the level of the nodes.
     """
@@ -204,7 +204,6 @@ def reconnect_graph(graph):
                                         edges_to_delete.append(last_edge)
                                     else:
                                         edges_to_delete.append(edge)
-
 
                         graph.delete_edges(edges_to_delete)
 
