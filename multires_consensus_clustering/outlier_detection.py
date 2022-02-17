@@ -115,3 +115,28 @@ def hdbscan_outlier(graph, threshold, plot_on_off):
         graph.es["weight"] = inverted_weights
 
     return graph
+
+
+def filter_by_node_probability(graph, threshold):
+    """
+    Calculates the average probability for all cells (probability per cell > 0)
+        and deletes all nodes with a probability less than the given threshold.
+    @param graph: The graph on which to filter out the nodes, iGraph graph; need graph.vs["probability_df"]
+    @param threshold: The threshold below which the vertices are deleted.
+    @return: The graph without the vertices.
+    """
+    vertex_to_delete = []
+    # calculates the average probability for every vertex
+    for vertex in graph.vs:
+        probabilities = vertex["probability_df"]
+        probability_vertex = sum(probabilities) / np.count_nonzero(probabilities)
+
+        # if below threshold deletes adds vertices to delete list
+        if probability_vertex < threshold:
+            vertex_to_delete.append(vertex)
+
+    # if list not empty delete the given vertices
+    if vertex_to_delete:
+        graph.delete_vertices(vertex_to_delete)
+
+    return graph

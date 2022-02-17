@@ -136,6 +136,7 @@ def merge_two_resolution_graphs(graph_1, graph_2, current_level, neighbours, clu
         for vertex_1 in graph.vs.select(graph=1):
             for vertex_2 in graph.vs.select(graph=2):
                 # calculate edge weight
+                # edge_weight = mcc.jaccard_index_two_vertices(vertex_1, vertex_2)
                 edge_weight = mcc.weighted_jaccard(vertex_1["probability_df"], vertex_2["probability_df"])
 
                 # if the edge_weight is greater 0 the edge is added
@@ -163,7 +164,6 @@ def reconnect_graph(graph):
                 # connects only bins next to each other
                 if vertex_2["level"] < level_vertex_1:
                     # calculate edge weight
-                    # edge_weight = mcc.jaccard_index_two_vertices(vertex_1, vertex_2)
                     edge_weight = mcc.weighted_jaccard(vertex_1["probability_df"], vertex_2["probability_df"])
 
                     # if the edge_weight is greater 0 the edge is added
@@ -230,7 +230,7 @@ def component_merger(graph, reconnect_graph_true_false, combine_by, threshold_ed
 
     if combine_by == "list":
         # uses louvain community detection to merge the graph and combines attributes to a list/average of probabilities
-        graph = mcc.merge_by_list_louvain(graph)
+        graph = mcc.merge_by_list(graph)
 
     else:
         # combine strings of nodes by components and take attributes from the first node
@@ -243,30 +243,47 @@ def component_merger(graph, reconnect_graph_true_false, combine_by, threshold_ed
     return graph
 
 
-def multires_community_detection(graph, combine_by):
+def multires_community_detection(graph, combine_by, community_detection, merge_edges_threshold, outlier_detection):
     """
     Uses louvain community detection on the multi-resolution graph and creates a clustering tree with reconnect_graph.
     Optional clean up of the clustering tree with edge merging.
 
+    @param outlier_detection: String: "probability" or "hdbscan" to choose on which the outlier detciton is based.
+    @param merge_edges_threshold: Threshold for edges to merge at the end, should probably be between 0.8-1.
+    @param community_detection: "leiden", "hdbscan" or else automatically louvain,
+        detects community with the named algorithms
     @param combine_by: "list" or "first" combines attributes either by list or by first
     @param graph: The mulit resolution graph, iGraph graph.
     @return: A clustering tree, igraph Graph.
     """
+
+    # choose outlier detection
+    if outlier_detection == "probability":
+        graph = mcc.filter_by_node_probability(graph, threshold=0.5)
+    elif outlier_detection == "hdbscan":
+        graph = mcc.hdbscan_outlier(graph, threshold=0.1, plot_on_off=False)
+
+    if community_detection == "leiden":
+        vertex_clustering = ig.Graph.community_leiden(graph, weights="weight")
+    elif community_detection == "hdbscan":
+        vertex_clustering = mcc.hdbscan_community_detection(graph)
+    else:
+        vertex_clustering = ig.Graph.community_multilevel(graph, weights="weight")
+
     # community detection
     if combine_by == "list":
-        # uses leiden community detection to merge the graph and combines attributes to a list/average of probabilities
-        graph = mcc.hdbscan_community_detection(graph)
-        graph = mcc.merge_by_list(graph)
+        # combines attributes to a list/average of probabilities
+        graph = mcc.merge_by_list(vertex_clustering)
 
     else:
         # combine strings of nodes by components and take attributes from the first node
-        graph = mcc.hdbscan_community_detection(graph).cluster_graph(combine_vertices="first", combine_edges=max)
+        graph = vertex_clustering.cluster_graph(combine_vertices="first", combine_edges=max)
 
     # delete edges and create graph tree structure
-    graph.es.select(weight_gt=0).delete()
+    graph.delete_edges()
     graph = reconnect_graph(graph)
 
     # clean up graph by merging some edges
-    graph = mcc.merge_edges_weight_above_threshold(graph, threshold=1)
+    graph = mcc.merge_edges_weight_above_threshold(graph, threshold=merge_edges_threshold)
 
     return graph

@@ -10,12 +10,17 @@ HERE = Path(__file__).parent.parent
 
 
 def run_multires_consensus_clustering(clustering_data, settings_data, adata, plot_edge_weights, plot_labels,
-                                      plot_interactive_graph):
+                                      plot_interactive_graph, combine_mulit_res, community_mulit_res,
+                                      merge_edges_mulit_res, outlier_mulit_res):
     """
     Run the multires consensus clustering by first building a meta_graph for every bin (resolution),
         run community detection on these graphs and merge similiar nodes.
         Create a graph based on all the merged resolution called multi_graph and
         run community detection again to create a merged graph tree representing the clustering resolutions.
+    @param outlier_mulit_res: "probability" or "hdbscan"
+    @param merge_edges_mulit_res: Threshold to clean up the graph after community detection, edges > threshold are merged
+    @param community_mulit_res: "leiden", "hdbscan" or otherwise automatically louvain.
+    @param combine_mulit_res: "frist" or "list" combines the graph attributes by function.
     @param plot_interactive_graph: True or False to plot the interactive graph.
     @param plot_labels: True or False to plot the ture labels and the assigned cluster labels.
     @param plot_edge_weights: True or False to plot edge weight distribution.
@@ -31,7 +36,10 @@ def run_multires_consensus_clustering(clustering_data, settings_data, adata, plo
     mcc.write_graph_to_file(multires_graph, neighbour_based=False)
 
     # community detection
-    multires_graph = mcc.multires_community_detection(multires_graph, combine_by="first")
+    multires_graph = mcc.multires_community_detection(multires_graph, combine_by=combine_mulit_res,
+                                                      community_detection=community_mulit_res,
+                                                      merge_edges_threshold=merge_edges_mulit_res,
+                                                      outlier_detection=outlier_mulit_res)
     print("Communities detected, Time:", time.time() - start)
 
     # outlier detection
@@ -74,4 +82,6 @@ if __name__ == "__main__":
     print("Read data, Time:", time.time() - start)
 
     run_multires_consensus_clustering(clustering_data, settings_data, adata=adata_s2d1, plot_edge_weights=False,
-                                      plot_labels=False, plot_interactive_graph=False)
+                                      plot_labels=True, plot_interactive_graph=False, combine_mulit_res="list",
+                                      community_mulit_res="leiden", merge_edges_mulit_res=0.81,
+                                      outlier_mulit_res="probability")
