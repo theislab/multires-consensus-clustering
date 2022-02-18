@@ -4,7 +4,7 @@ import time
 import scanpy as sc
 import pandas as pd
 import igraph as ig
-from optimization_using_saved_graphs import optimization_saved_graphs as optimize
+
 
 HERE = Path(__file__).parent.parent
 
