@@ -1,109 +1,87 @@
-from multires_consensus_clustering import meta_graph as mg
 import multires_consensus_clustering as mcc
 from pathlib import Path
 import time
 import scanpy as sc
+import pandas as pd
 import igraph as ig
+
 
 HERE = Path(__file__).parent.parent
 
 
-
-def meta_graph():
+def run_multires_consensus_clustering(clustering_data, settings_data, adata, plot_edge_weights, plot_labels,
+                                      plot_interactive_graph, combine_mulit_res, community_mulit_res,
+                                      merge_edges_mulit_res, outlier_mulit_res):
     """
-    Uses the Meta Graph script to build the graph from the sc data.
-
-    @return: The meta graph; "graph" an igraph object graph.
-    """
-
-    # read data
-    clustering_data = mg.read_data(HERE / "data\s2d1_clustering.tsv", "all")
-    settings_data = mg.read_data(HERE / "data\s2d1_settings.tsv", "all")
-
-    # binning the clusterings in bins close to the given numbers, combines all bins contained in the list
-    number_of_clusters_data = mg.sort_by_number_clusters(settings_data, clustering_data, [2])
-
-    # builds the graph from the bins
-    graph = mg.build_graph(number_of_clusters_data, clustering_data)
-
-    # get average edge weight
-    mean_edge_value = mcc.plot_edge_weights(graph, plot_on_off=False)
-
-    # delete all nodes with zero degree
-    graph = mcc.delete_nodes_with_zero_degree(graph)
-
-    # find outliers using hdbscan
-    graph = mcc.hdbscan_outlier(graph, mean_edge_value, plot_on_off=False)
-
-    # delete all edges below threshold
-    #graph = mcc.delete_edges_below_threshold(graph, mean_edge_value)
-
-    # builds a consensus graph by taking different graphs clustering them and intersecting the clusters.
-    #graph = mcc.consensus_graph(graph)
-
-    # deletes outlier communities using normalized community size.
-    # graph = mcc.delete_small_node_communities(graph)
-
-    # uses hdbscan for community detection
-    #graph = mcc.hdbscan_community_detection(graph)
-
-    # detect and merge communities in the meta graph
-    graph = mcc.igraph_community_detection(graph, detection_algorithm="louvain")
-
-    # contract graph clustering into single node
-    graph = mcc.contract_graph(graph)
-
-    # create a pandas dataframe with the probabilities of a cell being in a node
-    df_cell_probability = mcc.graph_nodes_cells_to_df(graph, clustering_data)
-
-    # create a pandas dataframe with the final clustering labels
-    mcc.assign_cluster_to_cell(df_cell_probability)
-
-    return graph
-
-
-def interactive_plot(graph, create_upsetplot, create_edge_weight_barchart):
-    """
-    Uses the adata to build an interactive plot with bokeh.
-
-    @param graph: The graph on which the plot is based.
-    @param create_upsetplot: Boolean variable to turn the upsetplot on or off; "True"/"False"
-    @param create_edge_weight_barchart: Boolean variable to turn the edge weight barchart on or off; "True"/"False"
+    Run the multires consensus clustering by first building a meta_graph for every bin (resolution),
+        run community detection on these graphs and merge similiar nodes.
+        Create a graph based on all the merged resolution called multi_graph and
+        run community detection again to create a merged graph tree representing the clustering resolutions.
+    @param outlier_mulit_res: "probability" or "hdbscan"
+    @param merge_edges_mulit_res: Threshold to clean up the graph after community detection, edges > threshold are merged
+    @param community_mulit_res: "leiden", "hdbscan" or otherwise automatically louvain.
+    @param combine_mulit_res: "frist" or "list" combines the graph attributes by function.
+    @param plot_interactive_graph: True or False to plot the interactive graph.
+    @param plot_labels: True or False to plot the ture labels and the assigned cluster labels.
+    @param plot_edge_weights: True or False to plot edge weight distribution.
+    @param settings_data: The settings data of the clusterings, number of clusters parameters, etc.
+    @param clustering_data: The clustering data based of the adata file, as a pandas dataframe, e.g. cell, C001, ...
+    @param adata: The single cell adata file
+    @return: The cluster labels create with this function.
     """
 
-    # read data
-    clustering_data = mg.read_data(HERE / "data\s2d1_clustering.tsv", "all")
-    settings_data = mg.read_data(HERE / "data\s2d1_settings.tsv", "all")
+    # multi resolution meta graph
+    multires_graph = mcc.multiresolution_graph(clustering_data, settings_data, "all", neighbour_based=False)
+    print("Multi-graph-build done, Time:", time.time() - start)
+    mcc.write_graph_to_file(multires_graph, neighbour_based=False)
 
-    # read adata file and select the set used for the clustering.
-    adata = sc.read_h5ad(HERE / "data/cite/cite_gex_processed_training.h5ad")
-    adata_s2d1 = adata[adata.obs.batch == "s2d1", :].copy()
+    # community detection
+    multires_graph = mcc.multires_community_detection(multires_graph, combine_by=combine_mulit_res,
+                                                      community_detection=community_mulit_res,
+                                                      merge_edges_threshold=merge_edges_mulit_res,
+                                                      outlier_detection=outlier_mulit_res)
+    print("Communities detected, Time:", time.time() - start)
 
-    # creates a pandas df with the probabilities of a cell being in a specific node
-    df_cell_probability = mcc.graph_nodes_cells_to_df(graph, clustering_data)
+    # outlier detection
+    mean_edge_weight = mcc.plot_edge_weights(multires_graph, False)
+    multires_graph = mcc.hdbscan_outlier(graph=multires_graph, threshold=mean_edge_weight, plot_on_off=False)
 
-    # create an bar-chart with all edge weights
-    if create_edge_weight_barchart:
-        mcc.plot_edge_weights(graph)
+    # plot edge weights
+    if plot_edge_weights:
+        mcc.plot_edge_weights(multires_graph, plot_on_off=True)
 
-    # create an upsetplot for the data
-    if create_upsetplot:
-        mcc.upsetplot_graph_nodes(df_cell_probability)
+    # plot clustering and labels
+    if plot_labels:
+        true_labels = mcc.true_labels(labels_df=mcc.read_data(HERE / "data\s2d1_labels.tsv", "all"), adata=adata_s2d1)
+        cluster_labels =mcc.best_prob_cell_labels(multires_graph, adata=adata_s2d1)
 
-    # create the cluster plots from the adata and adds the images to the graph
-    graph = mcc.umap_plot(df_cell_probability, adata_s2d1, graph)
+        return cluster_labels
 
-    # plots an interactive graph using bokeh and an upset plot showing how the cells are distributed
-    mcc.plot_interactive_graph(graph, df_cell_probability)
+    # plot multi-graph with bokeh
+    if plot_interactive_graph:
+        mcc.interactive_plot(adata, clustering_data, multires_graph, create_upsetplot=False,
+                             create_edge_weight_barchart=False, layout_option="hierarchy")
+
+    # measure the time
+    end = time.time()
+    print("Time to run: ", end - start)
 
 
 # run program
 if __name__ == "__main__":
     start = time.time()
 
-    meta_graph = meta_graph()
-    interactive_plot(meta_graph, create_upsetplot=False, create_edge_weight_barchart=False)
+    # read data
+    clustering_data = mcc.read_data(HERE / "data\s2d1_clustering.tsv", "all")
+    settings_data = mcc.read_data(HERE / "data\s2d1_settings.tsv", "all")
 
-    # measure the time
-    end = time.time()
-    print("Time to run: ", end - start)
+    # read adata file and select the set used for the clustering.
+    adata = sc.read_h5ad(HERE / "data/cite/cite_gex_processed_training.h5ad")
+    adata_s2d1 = adata[adata.obs.batch == "s2d1", :].copy()
+
+    print("Read data, Time:", time.time() - start)
+
+    run_multires_consensus_clustering(clustering_data, settings_data, adata=adata_s2d1, plot_edge_weights=False,
+                                      plot_labels=True, plot_interactive_graph=False, combine_mulit_res="list",
+                                      community_mulit_res="leiden", merge_edges_mulit_res=0.81,
+                                      outlier_mulit_res="probability")

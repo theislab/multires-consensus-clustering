@@ -3,8 +3,47 @@ import igraph as ig
 import numpy as np
 import pandas as pd
 import itertools
+import multires_consensus_clustering as mcc
 import seaborn as sns
 from multires_consensus_clustering import binning
+
+
+def meta_graph(clustering_data, settings_data, bin):
+    """
+    Uses the Meta Graph script to build the graph from the sc data.
+
+    @param clustering_data: The clustering of the adata file, cells as index and cluster labels for values
+        and clustering names as column index
+    @param settings_data: The settings used for the clustering_data, number clusters, etc.
+    @param bin: The bin from which the clustering should be created, see binning.py
+    @return: The meta graph; "graph" an igraph object graph.
+    """
+
+    # binning the clusterings in bins close to the given numbers, combines all bins contained in the list
+    number_of_clusters_data = sort_by_number_clusters(settings=settings_data, data=clustering_data,
+                                                      number_of_clusters_list=bin)
+
+    # builds the graph from the bins
+    graph = build_graph(number_of_clusters_data, clustering_data)
+
+    # detect and merge communities in the meta graph
+    graph = mcc.igraph_community_detection(graph, detection_algorithm="leiden")
+
+    # contract graph clustering into single node
+    graph = mcc.contract_graph(graph)
+
+    return graph
+
+
+def create_and_plot_single_resolution_graph(clustering_data, settings_data, adata_s2d1, bin_number):
+    """
+    Creates a single resolution meta graph and plots the graph as an interactive plot.
+    @param bin_number: The bin from which the meta graph should be created.
+    """
+    # single resolution meta graph
+    graph = mcc.meta_graph(clustering_data, settings_data, [bin_number])
+    mcc.interactive_plot(adata_s2d1, clustering_data, graph, create_upsetplot=False,
+                         create_edge_weight_barchart=False, layout_option="auto")
 
 
 # relabeling clusters by Isaac
@@ -105,7 +144,7 @@ def build_graph(clusters, data):
 
     # all possible combinations of clusters
     combinations_of_clusters = list(itertools.combinations(clusters.columns, 2))
-    print("Number of possible cluster combinations ", len(combinations_of_clusters))
+    # print("Number of possible clustering combinations ", len(combinations_of_clusters))
 
     vertex_labels = []
     vertex_cluster_methode = []
@@ -142,7 +181,6 @@ def build_graph(clusters, data):
                 cell_data = data["cell"].iloc[index_cluster_0].values
                 vertex_cells.append(list(cell_data))
 
-
             # check if node for cluster_1 is already in the graph
             if not (edge_end in vertex_labels):
                 G.add_vertices(edge_end)
@@ -177,18 +215,41 @@ def sort_by_number_clusters(settings, data, number_of_clusters_list):
     Afterwards turns the number_of_clusters in each bin into a list of lables of the clusters.
 
     :param settings: Setting data from the sc clustering as a pandas df.
-    :param data: Clutering data from the sc data as a pandas df.
-    :param number_of_clusters: The number of clusters which should be binned together.
+    :param data: Clustering data from the sc data as a pandas df.
+    :param number_of_clusters_list: The number of clusters which should be binned together, either an int or a list.
     :return: Returns a list of the clusterings binned by the number of clusters, e.g. [C001, C002, ...].
     """
+
     list_of_clusterings = []
-    for number_of_clusters in number_of_clusters_list:
-        #binning function by Luke Zappia, retruns list of lists, e.g. [[2], [3,4], ..]
-        bins_clusterings = binning.bin_n_clusters(settings["n_clusters"])
+
+    # binning function by Luke Zappia, returns list of lists, e.g. [[2], [3,4], ..]
+    bins_clusterings = binning.bin_n_clusters(settings["n_clusters"])
+
+    # if number_of_clusters_list == [4,5, .. ] a list of bins return the labels based on the closest bins
+    if type(number_of_clusters_list) == list:
+
+        # remove all duplicates
+        number_of_clusters_list = list(set(number_of_clusters_list))
+
+        for number_of_clusters in number_of_clusters_list:
+            # finds the closest bin to any given number_of_clusters and returns the bins index
+            best_bin = min(range(len(bins_clusterings)), key=lambda i:
+            abs(bins_clusterings[i][0] + bins_clusterings[i][-1] - 2 * number_of_clusters))
+
+            # selects the bin
+            number_of_clusters_closest = bins_clusterings[best_bin]
+
+            # find all clusterings contain in the bin by number_of_clusters
+            list_of_clusterings.extend(
+                settings.loc[settings['n_clusters'].isin(number_of_clusters_closest)]["id"].values)
+    # number_of_clusters_list is a single cluster given as an int or np.int64
+    else:
+        # convert to int
+        number_of_clusters = int(number_of_clusters_list)
 
         # finds the closest bin to any given number_of_clusters and returns the bins index
         best_bin = min(range(len(bins_clusterings)), key=lambda i:
-            abs(bins_clusterings[i][0]+bins_clusterings[i][-1] - 2 * number_of_clusters))
+        abs(bins_clusterings[i][0] + bins_clusterings[i][-1] - 2 * number_of_clusters))
 
         # selects the bin
         number_of_clusters_closest = bins_clusterings[best_bin]
@@ -196,55 +257,5 @@ def sort_by_number_clusters(settings, data, number_of_clusters_list):
         # find all clusterings contain in the bin by number_of_clusters
         list_of_clusterings.extend(settings.loc[settings['n_clusters'].isin(number_of_clusters_closest)]["id"].values)
 
-
     # return the list with all clusterings
     return data[list_of_clusterings]
-
-
-
-def plot_graph(G, label_on_off, color_vertex):
-    """
-    Function for plotting the Graph for all other used functions.
-
-    :param G: Graph that should be plotted.
-    :param label_on_off: Turns label on or off, get "label_off" or "label_on", type: string.
-    :param color_vertex: Gets the coloring method for the vertices, "degree" or "clustering", type: string.
-    :return: No return; only plots the graph.
-    """
-
-    # color by degree
-    if color_vertex == "degree":
-        # calculate the degree of each vertex
-        degree_graph = []
-        for vertex in G.vs["name"]:
-            degree_graph.append(G.degree(vertex))
-
-        # color according to the degree
-        color_palette = sns.color_palette("viridis", n_colors=max(degree_graph) + 1)
-        colors = [color_palette[degree] for degree in degree_graph]
-        G.vs['color'] = colors
-
-    # color by clustering
-    if color_vertex == "clustering":
-        # assign number to each clustering methode, e.g. "C001" = 0
-        names_to_numbers = {}
-        index_names = 0
-        for name in set(G.vs["clustering"]):
-            names_to_numbers[name] = index_names
-            index_names = index_names + 1
-        color_palette = ig.ClusterColoringPalette(len(names_to_numbers))
-        # color the nodes by clustering methode using the numbers, e.g. "C001" = 0
-        colors = [color_palette[names_to_numbers[name[0:4]]] for name in G.vs["name"]]
-        G.vs['color'] = colors
-
-    # layout = G.layout_fruchterman_reingold()
-    # layout = G.layout_kamada_kawai()
-    layout = G.layout_auto()
-
-    # turn labels on or off
-    if label_on_off == "label_on":
-        ig.plot(G, layout=layout, vertex_size=20, vertex_label=G.vs["name"], edge_label=G.es["weight"])
-    if label_on_off == "label_off":
-        ig.plot(G, layout=layout, vertex_size=20)
-
-

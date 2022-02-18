@@ -76,17 +76,19 @@ def merge_nodes(graph, node_1_indices, node_2_indices):
     return graph
 
 
-def merge_edges_weight_1(graph):
+def merge_edges_weight_above_threshold(graph, threshold):
     """
-    Merges all edges with edge weight 1.
+    Merges all edges with edge weight greater or equal to the given threshold.
 
-    :param graph: The graph on which the edges should be merged, iGraph object graph.
-    :return: Returns the Graph after changing the edges and nodes after merging the edges.
+    @param graph: The graph on which the edges should be merged, iGraph object graph.
+    @param threshold: All edges with edge["weight"] >= threshold are merged.
+    @return: Returns the Graph after changing the edges and nodes after merging the edges.
     """
+
     edges_to_merge = True
     while edges_to_merge:
         for edge in graph.es:
-            if edge["weight"] == 1:
+            if edge["weight"] >= threshold:
                 graph = merge_nodes(graph, edge.source, edge.target)
                 edges_to_merge = True
                 break

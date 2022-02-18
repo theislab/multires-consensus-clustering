@@ -7,44 +7,22 @@ import hdbscan
 import multires_consensus_clustering as mcc
 
 
-def min_cuts(graph):
-    """
-    Function for the min-cut algorithm. Separates the graph in two community by separating the edges with
-     lowest weight. Repeats the process until condition for max separations is met.
-
-
-    @param graph: The Graph on which the min-cut algorithm is performed.
-    @return: Returns the cut graph.
-    """
-    weight_normalized = np.sum(graph.es["weight"]) / graph.ecount()
-    size_partition_1 = 0
-    size_partition_2 = 1
-    cut_weight = weight_normalized - 1
-    while weight_normalized > cut_weight:
-        cut = graph.mincut(source=None, target=None, capacity="weight")
-        graph.delete_vertices(cut.partition[0])
-        size_partition_1 = len(cut.partition[0])
-        size_partition_2 = len(cut.partition[1])
-        cut_weight = cut.value
-        print(cut_weight)
-    return graph
-
-
-def delete_edges_below_threshold(graph, threshold):
+def delete_edges_below_threshold(graph, threshold, delete_single_nodes):
     """
     Deletes all edges, of the given graph, below a certain threshold.
-
+    weight
+    @param delete_single_nodes: Boolean to delete vertices with degree=0.
     @param graph: The graph, igraph object.
     @param threshold: Float number for the threshold, every edge with weight < threshold is deleted.
     @return: The graph without all edges with edge weight < threshold.
     """
 
-    for edge in graph.es:
-        if edge["weight"] < threshold:
-            graph.delete_edges([edge.source, edge.target])
+    # delete all edges with less then the threshold
+    graph.es.select(weight_le=threshold).delete()
 
     # delete all vertices with no connection
-    graph.vs.select(_degree=0).delete()
+    if delete_single_nodes:
+        graph.vs.select(_degree=0).delete()
 
     return graph
 
@@ -53,7 +31,7 @@ def delete_small_node_communities(vertex_clustering):
     """
     Deletes communities that are smaller the the average community size.
 
-    @param vertex_clustering: The vertex clustering that creates the diffrent communties on the graph.
+    @param vertex_clustering: The vertex clustering that creates the different communities on the graph.
     iGraph object: igraph.clustering.VertexClustering.
     @return: Returns the VertexClustering without the small communities.
     """
@@ -96,31 +74,69 @@ def hdbscan_outlier(graph, threshold, plot_on_off):
     @param graph: The graph on which the outliers should be detected. Needs attribute graph.es["weight"].
     @return: The graph without the outlier vertices and all multiple edges combined into single connections by max weight.    """
 
-    inverted_weights = [1 - edge_weight for edge_weight in graph.es["weight"]]
-    graph.es["weight"] = inverted_weights
+    # check if density outlier score can be calculated
+    if graph.average_path_length(directed=False, unconn=False) != np.inf:
+        inverted_weights = [1 - edge_weight for edge_weight in graph.es["weight"]]
+        graph.es["weight"] = inverted_weights
 
-    distance_matrix = mcc.create_distance_matrix(graph)
-    clusterer = hdbscan.HDBSCAN(metric="precomputed").fit(distance_matrix)
+        distance_matrix = mcc.create_distance_matrix(graph)
+        # distance_matrix = graph.get_adjacency_sparse(attribute="weight")
+        clusterer = hdbscan.HDBSCAN(metric="precomputed").fit(distance_matrix)
 
-    if plot_on_off:
-        # hdbscan density plot
-        sns.displot(clusterer.outlier_scores_[np.isfinite(clusterer.outlier_scores_)], rug=True)
-        plt.show()
+        # hdbscan outlier detection
+        # https://hdbscan.readthedocs.io/en/latest/outlier_detection.html
+        threshold = pd.Series(clusterer.outlier_scores_).quantile(1 - threshold)
+        outliers = np.where(clusterer.outlier_scores_ > threshold)[0]
 
-        # hdbscan tree plot
-        clusterer.condensed_tree_.plot(select_clusters=True,
-                                       selection_palette=sns.color_palette('deep', 8))
-        plt.show()
+        if plot_on_off:
+            # hdbscan density plot
+            sns.displot(clusterer.outlier_scores_[np.isfinite(clusterer.outlier_scores_)], rug=True)
+            plt.show()
 
-    # hdbscan outlier detection
-    # https://hdbscan.readthedocs.io/en/latest/outlier_detection.html
-    threshold = pd.Series(clusterer.outlier_scores_).quantile(1 - threshold)
-    outliers = np.where(clusterer.outlier_scores_ > threshold)[0]
+            # hdbscan tree plot
+            clusterer.condensed_tree_.plot(select_clusters=True,
+                                           selection_palette=sns.color_palette('deep', 8))
+            plt.show()
 
-    graph.delete_vertices(outliers)
-    graph.simplify(multiple=True, loops=True, combine_edges=max)
+            color = ig.drawing.colors.ClusterColoringPalette(2)
+            for vertex in graph.vs:
+                if vertex.index in outliers:
+                    vertex["color"] = color[0]
+                else:
+                    vertex["color"] = color[1]
+            ig.plot(graph, vertex_color=graph.vs["color"])
 
-    inverted_weights = [1 - edge_weight for edge_weight in graph.es["weight"]]
-    graph.es["weight"] = inverted_weights
+        # delete outliers and merge multiple edges and delete loops
+        graph.delete_vertices(outliers)
+        graph.simplify(multiple=True, loops=True, combine_edges=max)
+
+        # assign weights back to similarity
+        inverted_weights = [1 - edge_weight for edge_weight in graph.es["weight"]]
+        graph.es["weight"] = inverted_weights
+
+    return graph
+
+
+def filter_by_node_probability(graph, threshold):
+    """
+    Calculates the average probability for all cells (probability per cell > 0)
+        and deletes all nodes with a probability less than the given threshold.
+    @param graph: The graph on which to filter out the nodes, iGraph graph; need graph.vs["probability_df"]
+    @param threshold: The threshold below which the vertices are deleted.
+    @return: The graph without the vertices.
+    """
+    vertex_to_delete = []
+    # calculates the average probability for every vertex
+    for vertex in graph.vs:
+        probabilities = vertex["probability_df"]
+        probability_vertex = sum(probabilities) / np.count_nonzero(probabilities)
+
+        # if below threshold deletes adds vertices to delete list
+        if probability_vertex < threshold:
+            vertex_to_delete.append(vertex)
+
+    # if list not empty delete the given vertices
+    if vertex_to_delete:
+        graph.delete_vertices(vertex_to_delete)
 
     return graph
