@@ -4,6 +4,8 @@ import time
 import scanpy as sc
 import pandas as pd
 import igraph as ig
+import numpy as np
+from optimization_using_saved_graphs import optimization_saved_graphs as opti
 
 
 HERE = Path(__file__).parent.parent
@@ -39,12 +41,8 @@ def run_multires_consensus_clustering(clustering_data, settings_data, adata, plo
     multires_graph = mcc.multires_community_detection(multires_graph, combine_by=combine_mulit_res,
                                                       community_detection=community_mulit_res,
                                                       merge_edges_threshold=merge_edges_mulit_res,
-                                                      outlier_detection=outlier_mulit_res)
+                                                      outlier_detection=outlier_mulit_res, clustering_data=clustering_data)
     print("Communities detected, Time:", time.time() - start)
-
-    # outlier detection
-    mean_edge_weight = mcc.plot_edge_weights(multires_graph, False)
-    multires_graph = mcc.hdbscan_outlier(graph=multires_graph, threshold=mean_edge_weight, plot_on_off=False)
 
     # plot edge weights
     if plot_edge_weights:
@@ -81,7 +79,10 @@ if __name__ == "__main__":
 
     print("Read data, Time:", time.time() - start)
 
-    run_multires_consensus_clustering(clustering_data, settings_data, adata=adata_s2d1, plot_edge_weights=False,
-                                      plot_labels=True, plot_interactive_graph=False, combine_mulit_res="list",
-                                      community_mulit_res="leiden", merge_edges_mulit_res=0.81,
-                                      outlier_mulit_res="probability")
+    #run_multires_consensus_clustering(clustering_data, settings_data, adata=adata_s2d1, plot_edge_weights=False,
+    #                                  plot_labels=True, plot_interactive_graph=False, combine_mulit_res="list",
+    #                                  community_mulit_res="leiden", merge_edges_mulit_res=1,
+    #                                  outlier_mulit_res="probability")
+
+    opti.work_on_save_graphs(adata_s2d1, clustering_data, settings_data, plot_labels=True, plot_interactive_graph=False,
+                        community_detection="component", combine_by="list", merge_edges=0.8)

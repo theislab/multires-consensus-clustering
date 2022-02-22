@@ -251,18 +251,21 @@ def merge_by_list(graph_as_clustering):
         probability_df_sum = vertex["probability_df"][0]
         number_of_dfs = len(vertex["probability_df"])
 
+        # set vertex index
+        vertex_index = vertex.index
+
         # add elements of all probability_dfs in a vertex
         for probability_df_list in vertex["probability_df"][1:]:
             probability_df_sum = [element_list_1 + element_list_2 for element_list_1, element_list_2 in
                                   zip(probability_df_sum, probability_df_list)]
 
         # create new list of attributes for merged nodes
-        vertex["probability_df"] = [elements_df / number_of_dfs for elements_df in probability_df_sum]
-        vertex["name"] = sum(vertex["name"], [])
-        vertex["clustering"] = sum(vertex["clustering"], [])
-        vertex["cell"] = sum(vertex["cell"], [])
-        vertex["level"] = max(vertex["level"])
-        vertex["cell_index"] = vertex["cell_index"][0]
+        graph.vs[vertex_index]["probability_df"] = [elements_df / number_of_dfs for elements_df in probability_df_sum]
+        graph.vs[vertex_index]["name"] = sum(vertex["name"], [])
+        graph.vs[vertex_index]["clustering"] = sum(vertex["clustering"], [])
+        graph.vs[vertex_index]["cell"] = sum(vertex["cell"], [])
+        graph.vs[vertex_index]["level"] = max(vertex["level"])
+        graph.vs[vertex_index]["cell_index"] = vertex["cell_index"][0]
 
     return graph
 

@@ -26,6 +26,9 @@ def meta_graph(clustering_data, settings_data, bin):
     # builds the graph from the bins
     graph = build_graph(number_of_clusters_data, clustering_data)
 
+    # outlier detction
+    graph = mcc.hdbscan_outlier(graph, threshold=0.1, plot_on_off=False)
+
     # detect and merge communities in the meta graph
     graph = mcc.igraph_community_detection(graph, detection_algorithm="leiden")
 
@@ -39,11 +42,14 @@ def create_and_plot_single_resolution_graph(clustering_data, settings_data, adat
     """
     Creates a single resolution meta graph and plots the graph as an interactive plot.
     @param bin_number: The bin from which the meta graph should be created.
+    @return: Returns the created meta-graph.
     """
     # single resolution meta graph
     graph = mcc.meta_graph(clustering_data, settings_data, [bin_number])
     mcc.interactive_plot(adata_s2d1, clustering_data, graph, create_upsetplot=False,
                          create_edge_weight_barchart=False, layout_option="auto")
+
+    return graph
 
 
 # relabeling clusters by Isaac
