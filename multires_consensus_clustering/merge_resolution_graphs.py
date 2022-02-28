@@ -246,7 +246,7 @@ def multires_community_detection(graph, combine_by, community_detection, merge_e
 
     # choose outlier detection
     if outlier_detection == "probability":
-        graph = mcc.filter_by_node_probability(graph, threshold=0.5)
+        graph = mcc.filter_by_node_probability(graph, threshold=0.9)
     elif outlier_detection == "hdbscan":
         graph = mcc.hdbscan_outlier(graph, threshold=0.1, plot_on_off=False)
 

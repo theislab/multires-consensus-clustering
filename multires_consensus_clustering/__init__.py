@@ -6,8 +6,8 @@ __version__ = "0.0.1"
 from .binning import bin_n_clusters
 from .meta_graph import build_graph, sort_by_number_clusters, meta_graph, read_data, \
     create_and_plot_single_resolution_graph
-from .graph_analysis import igraph_community_detection, plot_edge_weights, \
-    consensus_graph, contract_graph, hdbscan_community_detection, create_distance_matrix, weighted_jaccard, \
+from .graph_analysis import igraph_community_detection, plot_edge_weights, contract_graph, hdbscan_community_detection,\
+    create_distance_matrix, weighted_jaccard, \
     jaccard_index_two_vertices, merge_by_list
 from .interactive_plot import plot_interactive_graph, upsetplot_graph_nodes, interactive_plot, umap_plot
 from .merge_nodes import merge_nodes, merge_edges_weight_above_threshold
