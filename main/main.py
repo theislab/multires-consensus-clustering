@@ -4,6 +4,8 @@ import time
 import scanpy as sc
 import pandas as pd
 import igraph as ig
+import numpy as np
+
 
 
 HERE = Path(__file__).parent.parent
@@ -11,12 +13,14 @@ HERE = Path(__file__).parent.parent
 
 def run_multires_consensus_clustering(clustering_data, settings_data, adata, plot_edge_weights, plot_labels,
                                       plot_interactive_graph, combine_mulit_res, community_mulit_res,
-                                      merge_edges_mulit_res, outlier_mulit_res):
+                                      merge_edges_mulit_res, outlier_mulit_res, connect_graph_neighbour_based):
     """
     Run the multires consensus clustering by first building a meta_graph for every bin (resolution),
         run community detection on these graphs and merge similiar nodes.
         Create a graph based on all the merged resolution called multi_graph and
         run community detection again to create a merged graph tree representing the clustering resolutions.
+    @param connect_graph_neighbour_based: True or False, connects the multi-resolution-graph either
+        by neighbouring resolutions or connects all vertices. HDBscan does not work with the neighbour based graph!
     @param outlier_mulit_res: "probability" or "hdbscan"
     @param merge_edges_mulit_res: Threshold to clean up the graph after community detection, edges > threshold are merged
     @param community_mulit_res: "leiden", "hdbscan" or otherwise automatically louvain.
@@ -31,20 +35,25 @@ def run_multires_consensus_clustering(clustering_data, settings_data, adata, plo
     """
 
     # multi resolution meta graph
-    multires_graph = mcc.multiresolution_graph(clustering_data, settings_data, "all", neighbour_based=False)
+    multires_graph = mcc.multiresolution_graph(clustering_data, settings_data, "all",
+                                               neighbour_based=connect_graph_neighbour_based)
     print("Multi-graph-build done, Time:", time.time() - start)
     mcc.write_graph_to_file(multires_graph, neighbour_based=False)
 
     # community detection
-    multires_graph = mcc.multires_community_detection(multires_graph, combine_by=combine_mulit_res,
+    if connect_graph_neighbour_based == True and outlier_mulit_res == "hdbscan" and community_mulit_res == "hdbscan":
+        print("Neighbor based graph does not support interaction with HDBscan.")
+        multires_graph = mcc.multires_community_detection(multires_graph, combine_by=combine_mulit_res,
+                                                          community_detection="leiden",
+                                                          merge_edges_threshold=merge_edges_mulit_res,
+                                                          outlier_detection="probability",
+                                                          clustering_data=clustering_data)
+    else:
+        multires_graph = mcc.multires_community_detection(multires_graph, combine_by=combine_mulit_res,
                                                       community_detection=community_mulit_res,
                                                       merge_edges_threshold=merge_edges_mulit_res,
-                                                      outlier_detection=outlier_mulit_res)
+                                                      outlier_detection=outlier_mulit_res, clustering_data=clustering_data)
     print("Communities detected, Time:", time.time() - start)
-
-    # outlier detection
-    mean_edge_weight = mcc.plot_edge_weights(multires_graph, False)
-    multires_graph = mcc.hdbscan_outlier(graph=multires_graph, threshold=mean_edge_weight, plot_on_off=False)
 
     # plot edge weights
     if plot_edge_weights:
@@ -83,5 +92,6 @@ if __name__ == "__main__":
 
     run_multires_consensus_clustering(clustering_data, settings_data, adata=adata_s2d1, plot_edge_weights=False,
                                       plot_labels=True, plot_interactive_graph=False, combine_mulit_res="list",
-                                      community_mulit_res="leiden", merge_edges_mulit_res=0.81,
-                                      outlier_mulit_res="probability")
+                                      community_mulit_res="leiden", merge_edges_mulit_res=1,
+                                      outlier_mulit_res="probability", connect_graph_neighbour_based=True)
+

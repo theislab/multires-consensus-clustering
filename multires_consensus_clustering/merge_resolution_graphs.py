@@ -210,43 +210,31 @@ def reconnect_graph(graph):
     return graph
 
 
-def component_merger(graph, reconnect_graph_true_false, combine_by, threshold_edges_to_delete):
+def component_merger(graph, threshold_edges_to_delete):
     """
     If the graph is split into different components merges the components and takes the average of the attributes
     or the first attribute.
 
     @param threshold_edges_to_delete: Integer between 0 and 1 to te the limit on what edge weights the edges are deleted.
-    @param combine_by: Comines by "list" or first node attribute otherwise.
-    @param reconnect_graph_true_false: True or False parameter, reconnects the components.
     @param graph: The graph on which the function works, iGraph graph.
-    @return: The merged graph, iGraph graph.
+    @return: The clustering based on the components, iGraph VertexClustering.
     """
 
-    graph = mcc.delete_edges_below_threshold(graph, 0.8, delete_single_nodes=False)
+    graph = mcc.delete_edges_below_threshold(graph, threshold_edges_to_delete, delete_single_nodes=False)
 
     # merge components
     graph_component = graph.clusters()
 
-    if combine_by == "list":
-        # uses louvain community detection to merge the graph and combines attributes to a list/average of probabilities
-        graph = mcc.merge_by_list(graph)
-
-    else:
-        # combine strings of nodes by components and take attributes from the first node
-        graph = graph_component.cluster_graph(combine_vertices="first", combine_edges=max)
-
-    # reconnect the components
-    if reconnect_graph_true_false:
-        graph = reconnect_graph(graph)
-
-    return graph
+    return graph_component
 
 
-def multires_community_detection(graph, combine_by, community_detection, merge_edges_threshold, outlier_detection):
+def multires_community_detection(graph, combine_by, community_detection, merge_edges_threshold, outlier_detection,
+                                 clustering_data):
     """
     Uses louvain community detection on the multi-resolution graph and creates a clustering tree with reconnect_graph.
     Optional clean up of the clustering tree with edge merging.
 
+    @param clustering_data: The clustering data on which the graph is based
     @param outlier_detection: String: "probability" or "hdbscan" to choose on which the outlier detciton is based.
     @param merge_edges_threshold: Threshold for edges to merge at the end, should probably be between 0.8-1.
     @param community_detection: "leiden", "hdbscan" or else automatically louvain,
@@ -258,7 +246,7 @@ def multires_community_detection(graph, combine_by, community_detection, merge_e
 
     # choose outlier detection
     if outlier_detection == "probability":
-        graph = mcc.filter_by_node_probability(graph, threshold=0.5)
+        graph = mcc.filter_by_node_probability(graph, threshold=0.9)
     elif outlier_detection == "hdbscan":
         graph = mcc.hdbscan_outlier(graph, threshold=0.1, plot_on_off=False)
 
@@ -266,6 +254,8 @@ def multires_community_detection(graph, combine_by, community_detection, merge_e
         vertex_clustering = ig.Graph.community_leiden(graph, weights="weight")
     elif community_detection == "hdbscan":
         vertex_clustering = mcc.hdbscan_community_detection(graph)
+    elif community_detection == "component":
+        vertex_clustering = mcc.component_merger(graph, threshold_edges_to_delete=0.9)
     else:
         vertex_clustering = ig.Graph.community_multilevel(graph, weights="weight")
 
@@ -277,6 +267,10 @@ def multires_community_detection(graph, combine_by, community_detection, merge_e
     else:
         # combine strings of nodes by components and take attributes from the first node
         graph = vertex_clustering.cluster_graph(combine_vertices="first", combine_edges=max)
+
+    # recalculate the probabilities based on the new merged nodes
+    new_probabilities = mcc.graph_nodes_cells_to_df(graph, clustering_data)
+    graph.vs["probability_df"] = [new_probabilities[column].values for column in new_probabilities.columns]
 
     # delete edges and create graph tree structure
     graph.delete_edges()

@@ -245,6 +245,7 @@ def umap_plot(df_cell_probability, adata, graph):
     for columns in df_cell_probability.columns:
         adata.obs['probability_cell_in_node'] = df_cell_probability[columns]
         file = columns + ".png"
+        #plot = sc.pl.umap(adata, color='probability_cell_in_node', show=True)
         plot = sc.pl.umap(adata, color='probability_cell_in_node', show=False)
         with BytesIO() as buf:
             plot.figure.savefig(buf, format="png", dpi=50)

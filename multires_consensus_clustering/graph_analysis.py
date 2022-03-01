@@ -52,21 +52,6 @@ def igraph_community_detection(G, detection_algorithm):
         # ig.plot(graph)
         return graph
 
-    elif detection_algorithm == "all":
-        # return list with vertex_clustering for all algorithms
-        graph_list = []
-
-        # fast_greedy
-        graph_list.append(ig.Graph.community_fastgreedy(G, weights="weight").as_clustering())
-
-        # newman2006
-        graph_list.append(ig.Graph.community_leading_eigenvector(G, weights="weight"))
-
-        # louvain, of Blondel et al.
-        graph_list.append(ig.Graph.community_multilevel(G, weights="weight"))
-
-        return graph_list
-
 
 def contract_graph(graph):
     """
@@ -111,55 +96,6 @@ def plot_edge_weights(graph, plot_on_off):
         return mean_edge_value
 
 
-def intersect_two_graphs_lists(graph_list_1, graph_list_2):
-    """
-    Finds the intersection graph of two graphs, for every combination of graphs in the two given lists.
-    @param graph_list_1: List with graphs, iGraph graphs.
-    @param graph_list_2: List with graphs, iGraph graphs.
-    @return: Returns a list with all graph intersections of the two lists.
-    """
-
-    intersection_list = []
-    for subgraph_0 in graph_list_1:
-        for subgraph_1 in graph_list_2:
-            intersection = ig.intersection([subgraph_0, subgraph_1], keep_all_vertices=False, byname=False)
-            intersection_list.append(intersection)
-
-    return intersection_list
-
-
-def consensus_graph(graph):
-    """
-    Uses multiple graph community detection algorithms to find all possible communities. Uses graph intersection to
-    dived the graph into the smallest partition of the graphs combined.
-    @param graph: The graph which should be partitioned into multiple subgraphs/communities.
-    @return: A union of those subgraphs, not connected.
-    """
-
-    list_graphs = igraph_community_detection(graph, detection_algorithm="all")
-    graph_community_list = []
-
-    for graphs in list_graphs:
-        subgraph_clustering = graphs.subgraphs()
-        graph_community_list.append(subgraph_clustering)
-
-    intersection_list = graph_community_list[0]
-    for subgraph_clustering in graph_community_list[1:]:
-        intersection_list = intersect_two_graphs_lists(intersection_list, subgraph_clustering)
-
-    cluster_index = 0
-    for intersection in intersection_list:
-        if intersection:
-            for vertex in intersection.vs:
-                vertex_index = vertex.index
-                graph.vs[vertex_index]["color"] = cluster_index
-        cluster_index += 1
-
-    graph = ig.clustering.VertexClustering.FromAttribute(graph, attribute="color")
-
-    return graph
-
-
 def hdbscan_community_detection(graph):
     """
     Create a graph partitioning based on hdbscan. Uses the distances between nodes to create a sparse matrix and applies
@@ -172,8 +108,8 @@ def hdbscan_community_detection(graph):
     inverted_weights = [1 - edge_weight for edge_weight in graph.es["weight"]]
     graph.es["weight"] = inverted_weights
 
-    # distance_matrix = create_distance_matrix(graph)
-    distance_matrix = graph.get_adjacency_sparse(attribute="weight")
+    distance_matrix = create_distance_matrix(graph)
+    # distance_matrix = graph.get_adjacency_sparse(attribute="weight")
 
     clusterer = hdbscan.HDBSCAN(metric="precomputed", min_samples=2).fit(distance_matrix)
     labels = clusterer.labels_
@@ -251,18 +187,21 @@ def merge_by_list(graph_as_clustering):
         probability_df_sum = vertex["probability_df"][0]
         number_of_dfs = len(vertex["probability_df"])
 
+        # set vertex index
+        vertex_index = vertex.index
+
         # add elements of all probability_dfs in a vertex
         for probability_df_list in vertex["probability_df"][1:]:
             probability_df_sum = [element_list_1 + element_list_2 for element_list_1, element_list_2 in
                                   zip(probability_df_sum, probability_df_list)]
 
         # create new list of attributes for merged nodes
-        vertex["probability_df"] = [elements_df / number_of_dfs for elements_df in probability_df_sum]
-        vertex["name"] = sum(vertex["name"], [])
-        vertex["clustering"] = sum(vertex["clustering"], [])
-        vertex["cell"] = sum(vertex["cell"], [])
-        vertex["level"] = max(vertex["level"])
-        vertex["cell_index"] = vertex["cell_index"][0]
+        graph.vs[vertex_index]["probability_df"] = [elements_df / number_of_dfs for elements_df in probability_df_sum]
+        graph.vs[vertex_index]["name"] = sum(vertex["name"], [])
+        graph.vs[vertex_index]["clustering"] = sum(vertex["clustering"], [])
+        graph.vs[vertex_index]["cell"] = sum(vertex["cell"], [])
+        graph.vs[vertex_index]["level"] = max(vertex["level"])
+        graph.vs[vertex_index]["cell_index"] = vertex["cell_index"][0]
 
     return graph
 
@@ -296,7 +235,7 @@ def weighted_jaccard(probability_node_1, probability_node_2):
 
     @param probability_node_1: List of probabilities (vertex_1) created from the cells occurring in the meta node,
         created with graph_nodes_cells_to_df and split up by column and turn int list with values.
-    @param vertex_2_probaility_df:  List of probabilities (vertex_2) created from the cells occurring in the meta node,
+    @param probability_node_2:  List of probabilities (vertex_2) created from the cells occurring in the meta node,
         created with graph_nodes_cells_to_df and split up by column and turn int list with values.
     @return: The weighted probability_node_2 index; int.
     """
