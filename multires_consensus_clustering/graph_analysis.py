@@ -68,34 +68,6 @@ def contract_graph(graph):
     return graph
 
 
-def plot_edge_weights(graph, plot_on_off):
-    """
-    Create a bar-chart of the edge weight based on the given graph.
-
-    @param plot_on_off: Turn the plot on or off, type: Boolean
-    @param graph: The graph, an igraph object, type: graph.
-    @return mean_edge_value: The avervage weight of the graph edges. If there are no edges return 0.
-    """
-    number_edges = graph.ecount()
-
-    # if there are no edges, return 0
-    if number_edges == 0:
-        return 0
-
-    # else plot barchart of edge weights and return the averge edge weight
-    else:
-        edge_weights = graph.es["weight"]
-        mean_edge_value = sum(edge_weights) / len(edge_weights)
-
-        if plot_on_off:
-            # distribution edge weights, histogram with average line
-            plt.hist(edge_weights, edgecolor='k', bins=40)
-            plt.axvline(mean_edge_value, color='k', linestyle='dashed', linewidth=1)
-            plt.show()
-
-        return mean_edge_value
-
-
 def hdbscan_community_detection(graph):
     """
     Create a graph partitioning based on hdbscan. Uses the distances between nodes to create a sparse matrix and applies
