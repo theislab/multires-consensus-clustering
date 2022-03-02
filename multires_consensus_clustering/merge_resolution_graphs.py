@@ -237,7 +237,7 @@ def multires_community_detection(graph, combine_by, community_detection, merge_e
     @param clustering_data: The clustering data on which the graph is based
     @param outlier_detection: String: "probability" or "hdbscan" to choose on which the outlier detciton is based.
     @param merge_edges_threshold: Threshold for edges to merge at the end, should probably be between 0.8-1.
-    @param community_detection: "leiden", "hdbscan" or else automatically louvain,
+    @param community_detection: "leiden", "hdbscan", "component" or else automatically louvain,
         detects community with the named algorithms
     @param combine_by: "list" or "first" combines attributes either by list or by first
     @param graph: The mulit resolution graph, iGraph graph.

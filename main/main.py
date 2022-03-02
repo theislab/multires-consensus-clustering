@@ -7,7 +7,6 @@ import igraph as ig
 import numpy as np
 
 
-
 HERE = Path(__file__).parent.parent
 
 
@@ -23,7 +22,7 @@ def run_multires_consensus_clustering(clustering_data, settings_data, adata, plo
         by neighbouring resolutions or connects all vertices. HDBscan does not work with the neighbour based graph!
     @param outlier_mulit_res: "probability" or "hdbscan"
     @param merge_edges_mulit_res: Threshold to clean up the graph after community detection, edges > threshold are merged
-    @param community_mulit_res: "leiden", "hdbscan" or otherwise automatically louvain.
+    @param community_mulit_res: "leiden", "hdbscan", "component" or otherwise automatically louvain.
     @param combine_mulit_res: "frist" or "list" combines the graph attributes by function.
     @param plot_interactive_graph: True or False to plot the interactive graph.
     @param plot_labels: True or False to plot the ture labels and the assigned cluster labels.

@@ -6,10 +6,10 @@ __version__ = "0.0.1"
 from .binning import bin_n_clusters
 from .meta_graph import build_graph, sort_by_number_clusters, meta_graph, read_data, \
     create_and_plot_single_resolution_graph
-from .graph_analysis import igraph_community_detection, plot_edge_weights, contract_graph, hdbscan_community_detection,\
+from .graph_analysis import igraph_community_detection, contract_graph, hdbscan_community_detection, \
     create_distance_matrix, weighted_jaccard, \
     jaccard_index_two_vertices, merge_by_list
-from .interactive_plot import plot_interactive_graph, upsetplot_graph_nodes, interactive_plot, umap_plot
+from .interactive_plot import plot_interactive_graph, interactive_plot, umap_plot
 from .merge_nodes import merge_nodes, merge_edges_weight_above_threshold
 from .cell_labels_scanpy import relabel_cell, assign_cluster_to_cell, graph_to_clustering, true_labels, \
     best_prob_cell_labels
@@ -19,3 +19,4 @@ from .merge_resolution_graphs import merge_two_resolution_graphs, delete_edges_s
     component_merger, multires_community_detection, multiresolution_graph
 from .save_and_load_graphs import write_graph_to_file, load_graph_from_file
 from .cell_probability import graph_nodes_cells_to_df, single_node_to_df
+from .informativ_plots import plot_edge_weights, upsetplot_graph_nodes, cell_occurrence_plot, vertex_probabilities_plot

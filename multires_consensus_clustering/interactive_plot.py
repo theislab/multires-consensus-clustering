@@ -207,27 +207,6 @@ def plot_interactive_graph(G, df_cell_probability, layout_option):
     show(plot_graph)
 
 
-def upsetplot_graph_nodes(df_cell_probability):
-    """
-    Creates an upsetplot showing the cells in each merged node and the cells shared by the nodes.
-
-    @param df_cell_probability: Pandas dataframe with cells and probabilities for each merged node.
-    """
-
-    df_cell_probability = df_cell_probability.groupby(['cell']).sum()
-
-    df_cell_probability[df_cell_probability > 0] = True
-    df_cell_probability[df_cell_probability == 0] = False
-
-    column_names = []
-    for name_node_cluster in df_cell_probability.columns.values:
-        column_names.append(name_node_cluster)
-    cell_in_node_size_upset = df_cell_probability.groupby(column_names).size()
-    plot(cell_in_node_size_upset)
-
-    plt.show()
-
-
 def umap_plot(df_cell_probability, adata, graph):
     """
     Uses the umap from scanpy to plot the probability of the cells being in one node. These range from 0 to 1.
