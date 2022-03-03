@@ -2,13 +2,8 @@ import igraph as ig
 import numpy as np
 import scanpy as sc
 import pandas as pd
-import itertools
 import multires_consensus_clustering as mcc
-import seaborn as sns
-import sklearn
-import hdbscan
 import matplotlib.pyplot as plt
-import seaborn as sns
 from upsetplot import plot
 
 
@@ -90,6 +85,7 @@ def cell_occurrence_plot(graph, adata, clustering_data):
     df_probabilities_vertex = pd.DataFrame({'cell': cell_names,
                                             'cell_counts': cell_counts})
 
+    # reset index
     df_probabilities_vertex.set_index("cell", inplace=True)
 
     # assigns the values to the cells
@@ -125,3 +121,35 @@ def vertex_probabilities_plot(graph):
     plt.hist(probability_vertex_list, edgecolor='k', bins=40)
     plt.axvline(probability_average, color='k', linestyle='dashed', linewidth=1)
     plt.show()
+
+
+def probability_umap_plot(graph, adata):
+    """
+    Display's the probabilities of the cells in the final cluster labels assignment.
+
+    @param graph: The graph from which the final cluster labels are generated.
+    @param adata: The adata file on which the mcc function is based.
+    """
+
+    # get df of the cluster labels, probabilities and levels from the graph
+    df_clusters = mcc.graph_to_cell_labels_df(graph)
+
+    # plot the probabilities with umap
+    adata.obs["mcc_cluster_probabilities"] = df_clusters["probability"]
+    sc.pl.umap(adata, color=["mcc_cluster_probabilities"], show=True)
+
+
+def node_level_plot(graph, adata):
+    """
+    Display's the level of the nodes from which the cells are assigned, in the final cluster label assignment.
+
+    @param graph: The graph from which the final cluster labels are generated.
+    @param adata: The adata file on which the mcc function is based.
+    """
+
+    # get df of the cluster labels, probabilities and levels from the graph
+    df_clusters = mcc.graph_to_cell_labels_df(graph)
+
+    # plot the levels with umap
+    adata.obs["mcc_cluster_level"] = df_clusters["level_cluster_label"]
+    sc.pl.umap(adata, color=["mcc_cluster_level"], show=True)

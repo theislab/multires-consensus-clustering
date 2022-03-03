@@ -22,7 +22,7 @@ def write_graph_to_file(graph, neighbour_based):
 
 def load_graph_from_file(neighbour_based):
     """
-    Loads the pytzhon pcikel file and converts it back to an iGraph graph.
+    Loads the python pickle file and converts it back to an iGraph graph.
     @param neighbour_based: True or False, converted to string to load the graph of the neighbour based graph
         or completely connected graph.
     @return: Returns the graph created from the pickle file.

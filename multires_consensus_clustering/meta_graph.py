@@ -46,6 +46,8 @@ def create_and_plot_single_resolution_graph(clustering_data, settings_data, adat
     """
     # single resolution meta graph
     graph = mcc.meta_graph(clustering_data, settings_data, [bin_number])
+
+    # create an interactive plot for the single resolution meta graph
     mcc.interactive_plot(adata_s2d1, clustering_data, graph, create_upsetplot=False,
                          create_edge_weight_barchart=False, layout_option="auto")
 
@@ -117,24 +119,18 @@ def clustering_edges_array(clustering1: "np.ndarray[int]",
 
 
 # read data
-def read_data(path, sample_size):
+def read_data(path):
     """
     Reads the data from file and converts it to a pandas df, returns a sample or the complete data.
 
     :param path: Path of the data.
-    :param sample_size: If not all data selected returns only a smaller sample for testing, type int or string ,
-        number of samples (int) or "all".
     :return: Data as a pandas dataframe
     """
+
+    # read the data using pandas
     data = pd.read_table(path)
 
-    # for testing return only a sample of clusters
-    if type(sample_size) == int:
-        return data.iloc[:, 0:sample_size]
-
-    # return complete set
-    if sample_size == "all":
-        return data
+    return data
 
 
 def build_graph(clusters, data):

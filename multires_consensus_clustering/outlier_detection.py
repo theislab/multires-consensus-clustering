@@ -104,7 +104,6 @@ def hdbscan_outlier(graph, threshold, plot_on_off):
                     vertex["color"] = color[0]
                 else:
                     vertex["color"] = color[1]
-            ig.plot(graph, vertex_color=graph.vs["color"])
 
         # delete outliers and merge multiple edges and delete loops
         graph.delete_vertices(outliers)

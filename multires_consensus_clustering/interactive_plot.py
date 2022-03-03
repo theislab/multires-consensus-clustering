@@ -189,7 +189,7 @@ def plot_interactive_graph(G, df_cell_probability, layout_option):
     # create graph layout according to bokeh Visualizing network graphs documentation
     graph_layout = dict(zip(node_indices, zip(node_x, node_y)))
 
-    # use the layoutprovider from bokeh to create a layout,
+    # use the layout provided from bokeh to create a layout,
     # as used in the bokeh Visualizing network graphs documentation
     render_graph.layout_provider = bokeh.models.graphs.StaticLayoutProvider(graph_layout=graph_layout)
 
@@ -232,6 +232,6 @@ def umap_plot(df_cell_probability, adata, graph):
             byte_image = base64.b64encode(buf.read())
         encode_image = byte_image.decode("utf-8")
         plot_list.append(f'<img src="data:image/png;base64,{encode_image}"/>')
-
+        plt.close()
     graph.vs["img"] = plot_list
     return graph
