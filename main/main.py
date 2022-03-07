@@ -41,7 +41,6 @@ def run_multires_consensus_clustering(clustering_data, settings_data, adata, plo
     multires_graph = mcc.multiresolution_graph(clustering_data, settings_data, "all",
                                                neighbour_based=connect_graph_neighbour_based)
     print("Multi-graph-build done, Time:", time.time() - start)
-    mcc.write_graph_to_file(multires_graph, neighbour_based=False)
 
     # community detection
     if connect_graph_neighbour_based == True and outlier_mulit_res == "hdbscan" and community_mulit_res == "hdbscan":
@@ -91,6 +90,6 @@ if __name__ == "__main__":
 
     run_multires_consensus_clustering(clustering_data, settings_data, adata=adata_s2d1,
                                       community_mulit_res="leiden", merge_edges_threshold=1,
-                                      outlier_mulit_res="probability", connect_graph_neighbour_based=True,
-                                      plot_labels=True, plot_interactive_graph=False)
+                                      outlier_mulit_res="probability", outlier_threshold=0.9,
+                                      connect_graph_neighbour_based=True, plot_labels=False, plot_interactive_graph=False)
 

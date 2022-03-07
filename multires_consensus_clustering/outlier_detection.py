@@ -70,7 +70,7 @@ def hdbscan_outlier(graph, threshold, plot_on_off):
     Uses the hdbscan density clustering to detect outlier communities in the graph and deletes them.
 
     @param plot_on_off: Turn the density distribution plot on or off, type Boolean.
-    @param threshold: 1-threshold is the density above which all connections are deleted.
+    @param threshold: 1-threshold is the quantile above which all connections are deleted.
     @param graph: The graph on which the outliers should be detected. Needs attribute graph.es["weight"].
     @return: The graph without the outlier vertices and all multiple edges combined into single connections by max weight.    """
 

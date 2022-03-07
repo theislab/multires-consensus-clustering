@@ -26,7 +26,7 @@ def meta_graph(clustering_data, settings_data, bin):
     # builds the graph from the bins
     graph = build_graph(number_of_clusters_data, clustering_data)
 
-    # outlier detction
+    # outlier detection
     graph = mcc.hdbscan_outlier(graph, threshold=0.1, plot_on_off=False)
 
     # detect and merge communities in the meta graph
