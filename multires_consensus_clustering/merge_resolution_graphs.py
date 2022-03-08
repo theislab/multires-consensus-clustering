@@ -1,9 +1,8 @@
-import time
-
-import multires_consensus_clustering as mcc
 import numpy as np
 import pandas as pd
 import igraph as ig
+import multires_consensus_clustering as mcc
+
 
 
 def multiresolution_graph(clustering_data, settings_data, list_resolutions, neighbour_based):
@@ -103,11 +102,9 @@ def merge_two_resolution_graphs(graph_1, graph_2, current_level, neighbours, clu
     @return: The merged graph.
     """
 
-
     # to check the graph merger visually
     graph_1.vs["graph"] = [1] * graph_1.vcount()
     graph_2.vs["graph"] = [2] * graph_2.vcount()
-
 
     # add cell probability to the second graph with is added in the new layer (level)
     probability_df = mcc.graph_nodes_cells_to_df(graph_2, clustering_data)
@@ -210,63 +207,44 @@ def reconnect_graph(graph):
     return graph
 
 
-def component_merger(graph, threshold_edges_to_delete):
-    """
-    If the graph is split into different components merges the components and takes the average of the attributes
-    or the first attribute.
-
-    @param threshold_edges_to_delete: Integer between 0 and 1 to te the limit on what edge weights the edges are deleted.
-    @param graph: The graph on which the function works, iGraph graph.
-    @return: The clustering based on the components, iGraph VertexClustering.
-    """
-
-    graph = mcc.delete_edges_below_threshold(graph, threshold_edges_to_delete, delete_single_nodes=False)
-
-    # merge components
-    graph_component = graph.clusters()
-
-    return graph_component
-
-
-def multires_community_detection(graph, combine_by, community_detection, merge_edges_threshold, outlier_detection,
-                                 clustering_data):
+def multires_community_detection(graph, clustering_data, community_detection, merge_edges_threshold, outlier_detection,
+                                 outlier_detection_threshold):
     """
     Uses louvain community detection on the multi-resolution graph and creates a clustering tree with reconnect_graph.
     Optional clean up of the clustering tree with edge merging.
 
+    @param outlier_detection_threshold: Value on which the outlier detection is based, can be 0 to 1.
     @param clustering_data: The clustering data on which the graph is based
     @param outlier_detection: String: "probability" or "hdbscan" to choose on which the outlier detciton is based.
     @param merge_edges_threshold: Threshold for edges to merge at the end, should probably be between 0.8-1.
     @param community_detection: "leiden", "hdbscan", "component" or else automatically louvain,
         detects community with the named algorithms
-    @param combine_by: "list" or "first" combines attributes either by list or by first
     @param graph: The mulit resolution graph, iGraph graph.
     @return: A clustering tree, igraph Graph.
     """
 
     # choose outlier detection
     if outlier_detection == "probability":
-        graph = mcc.filter_by_node_probability(graph, threshold=0.9)
+        graph = mcc.filter_by_node_probability(graph, threshold=outlier_detection_threshold)
     elif outlier_detection == "hdbscan":
-        graph = mcc.hdbscan_outlier(graph, threshold=0.1, plot_on_off=False)
-
-    if community_detection == "leiden":
-        vertex_clustering = ig.Graph.community_leiden(graph, weights="weight")
-    elif community_detection == "hdbscan":
-        vertex_clustering = mcc.hdbscan_community_detection(graph)
-    elif community_detection == "component":
-        vertex_clustering = mcc.component_merger(graph, threshold_edges_to_delete=0.9)
-    else:
-        vertex_clustering = ig.Graph.community_multilevel(graph, weights="weight")
+        graph = mcc.hdbscan_outlier(graph, threshold=1 - outlier_detection_threshold, plot_on_off=False)
 
     # community detection
-    if combine_by == "list":
-        # combines attributes to a list/average of probabilities
-        graph = mcc.merge_by_list(vertex_clustering)
-
+    if community_detection == "leiden":
+        # uses the leiden algorithm for community detection
+        vertex_clustering = ig.Graph.community_leiden(graph, weights="weight")
+    elif community_detection == "hdbscan":
+        # uses the hdbscan for community detection
+        vertex_clustering = mcc.hdbscan_community_detection(graph)
+    elif community_detection == "component":
+        # splits the graph into components and merges these components into a single node
+        vertex_clustering = mcc.component_merger(graph, threshold_edges_to_delete=0.99)
     else:
-        # combine strings of nodes by components and take attributes from the first node
-        graph = vertex_clustering.cluster_graph(combine_vertices="first", combine_edges=max)
+        # if nothing is selected uses louvain community detection
+        vertex_clustering = ig.Graph.community_multilevel(graph, weights="weight")
+
+    # combines attributes to a list
+    graph = mcc.merge_by_list(vertex_clustering)
 
     # recalculate the probabilities based on the new merged nodes
     new_probabilities = mcc.graph_nodes_cells_to_df(graph, clustering_data)
