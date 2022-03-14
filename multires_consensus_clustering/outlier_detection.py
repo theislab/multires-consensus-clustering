@@ -81,7 +81,7 @@ def hdbscan_outlier(graph, threshold, plot_on_off):
 
         distance_matrix = mcc.create_distance_matrix(graph)
         # distance_matrix = graph.get_adjacency_sparse(attribute="weight")
-        clusterer = hdbscan.HDBSCAN(metric="precomputed").fit(distance_matrix)
+        clusterer = hdbscan.HDBSCAN(metric="precomputed", min_samples=2, allow_single_cluster=True).fit(distance_matrix)
 
         # hdbscan outlier detection
         # https://hdbscan.readthedocs.io/en/latest/outlier_detection.html
