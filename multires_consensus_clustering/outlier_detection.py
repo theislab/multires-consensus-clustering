@@ -74,44 +74,82 @@ def hdbscan_outlier(graph, threshold, plot_on_off):
     @param graph: The graph on which the outliers should be detected. Needs attribute graph.es["weight"].
     @return: The graph without the outlier vertices and all multiple edges combined into single connections by max weight.    """
 
+    graph_components = graph.clusters()
+
     # check if density outlier score can be calculated
     if graph.average_path_length(directed=False, unconn=False) != np.inf:
-        inverted_weights = [1 - edge_weight for edge_weight in graph.es["weight"]]
-        graph.es["weight"] = inverted_weights
 
-        distance_matrix = mcc.create_distance_matrix(graph)
-        # distance_matrix = graph.get_adjacency_sparse(attribute="weight")
-        clusterer = hdbscan.HDBSCAN(metric="precomputed", min_samples=2, allow_single_cluster=True).fit(distance_matrix)
+        # check number of components
+        if len(graph_components) == 1:
+            graph = hdbscan_delete_outlier_nodes(graph, threshold, plot_on_off)
 
-        # hdbscan outlier detection
-        # https://hdbscan.readthedocs.io/en/latest/outlier_detection.html
-        threshold = pd.Series(clusterer.outlier_scores_).quantile(1 - threshold)
-        outliers = np.where(clusterer.outlier_scores_ > threshold)[0]
+        else:
+            union_graph = ig.Graph()
 
-        if plot_on_off:
-            # hdbscan density plot
-            sns.displot(clusterer.outlier_scores_[np.isfinite(clusterer.outlier_scores_)], rug=True)
-            plt.show()
+            # run outlier detection on every component
+            for subgraph in graph_components.subgraphs:
+                # deletes single nodes
+                if subgraph.vcount() > 1:
+                    # run HDBscan on subgraphs with at least two nodes
+                    outlier_subgraph = hdbscan_delete_outlier_nodes(subgraph, threshold, plot_on_off)
+                    union_graph = union_graph.union(outlier_subgraph)
 
-            # hdbscan tree plot
-            clusterer.condensed_tree_.plot(select_clusters=True,
-                                           selection_palette=sns.color_palette('deep', 8))
-            plt.show()
+            # check if subgraphs are not all single nodes / union_graph is not empty
+            if union_graph.vcount() != 0:
+                graph = union_graph
 
-            color = ig.drawing.colors.ClusterColoringPalette(2)
-            for vertex in graph.vs:
-                if vertex.index in outliers:
-                    vertex["color"] = color[0]
-                else:
-                    vertex["color"] = color[1]
+    return graph
 
-        # delete outliers and merge multiple edges and delete loops
-        graph.delete_vertices(outliers)
-        graph.simplify(multiple=True, loops=True, combine_edges=max)
 
-        # assign weights back to similarity
-        inverted_weights = [1 - edge_weight for edge_weight in graph.es["weight"]]
-        graph.es["weight"] = inverted_weights
+def hdbscan_delete_outlier_nodes(graph, threshold, plot_on_off):
+    """
+    The main HDBscan outlier function. Inverts the edge weight to metric distances, calculates a distance matrix and
+        uses the HDBscan outlier function to delete the outlier nodes. Afterwards edge weight are return to similarity.
+    @param graph: The graph on which to run the HDBscan outlier detection. iGraph object, need .es["weight"].
+    @param threshold: The threshold of the outlier detection. Used for the upper quantile.
+    @param plot_on_off: Turns the HDBscan plots on or off.
+    @return: Returns the graph without the outliers.
+    """
+
+    # invert edge weights
+    inverted_weights = [1 - edge_weight for edge_weight in graph.es["weight"]]
+    graph.es["weight"] = inverted_weights
+
+    # calculate distance matrix
+    distance_matrix = mcc.create_distance_matrix(graph)
+
+    # run HDBscan
+    clusterer = hdbscan.HDBSCAN(metric="precomputed", min_samples=2, allow_single_cluster=True).fit(distance_matrix)
+
+    # hdbscan outlier detection
+    # https://hdbscan.readthedocs.io/en/latest/outlier_detection.html
+    threshold = pd.Series(clusterer.outlier_scores_).quantile(1 - threshold)
+    outliers = np.where(clusterer.outlier_scores_ > threshold)[0]
+
+    if plot_on_off:
+        # hdbscan density plot
+        sns.displot(clusterer.outlier_scores_[np.isfinite(clusterer.outlier_scores_)], rug=True)
+        plt.show()
+
+        # hdbscan tree plot
+        clusterer.condensed_tree_.plot(select_clusters=True,
+                                       selection_palette=sns.color_palette('deep', 8))
+        plt.show()
+
+        color = ig.drawing.colors.ClusterColoringPalette(2)
+        for vertex in graph.vs:
+            if vertex.index in outliers:
+                vertex["color"] = color[0]
+            else:
+                vertex["color"] = color[1]
+
+    # delete outliers and merge multiple edges and delete loops
+    graph.delete_vertices(outliers)
+    graph.simplify(multiple=True, loops=True, combine_edges=max)
+
+    # assign weights back to similarity
+    inverted_weights = [1 - edge_weight for edge_weight in graph.es["weight"]]
+    graph.es["weight"] = inverted_weights
 
     return graph
 
