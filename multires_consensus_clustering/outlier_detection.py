@@ -74,29 +74,32 @@ def hdbscan_outlier(graph, threshold, plot_on_off):
     @param graph: The graph on which the outliers should be detected. Needs attribute graph.es["weight"].
     @return: The graph without the outlier vertices and all multiple edges combined into single connections by max weight.    """
 
-    graph_components = graph.clusters()
+    # check not all edge weights are 1.0
+    if np.mean(graph.es["weight"]) != 1:
 
-    # check if density outlier score can be calculated
-    if graph.average_path_length(directed=False, unconn=False) != np.inf:
+        graph_components = graph.clusters()
 
-        # check number of components
-        if len(graph_components) == 1:
-            graph = hdbscan_delete_outlier_nodes(graph, threshold, plot_on_off)
+        # check if density outlier score can be calculated
+        if graph.average_path_length(directed=False, unconn=False) != np.inf:
 
-        else:
-            union_graph = ig.Graph()
+            # check number of components
+            if len(graph_components) == 1:
+                graph = hdbscan_delete_outlier_nodes(graph, threshold, plot_on_off)
 
-            # run outlier detection on every component
-            for subgraph in graph_components.subgraphs:
-                # deletes single nodes
-                if subgraph.vcount() > 1:
-                    # run HDBscan on subgraphs with at least two nodes
-                    outlier_subgraph = hdbscan_delete_outlier_nodes(subgraph, threshold, plot_on_off)
-                    union_graph = union_graph.union(outlier_subgraph)
+            else:
+                union_graph = ig.Graph()
 
-            # check if subgraphs are not all single nodes / union_graph is not empty
-            if union_graph.vcount() != 0:
-                graph = union_graph
+                # run outlier detection on every component
+                for subgraph in graph_components.subgraphs:
+                    # deletes single nodes
+                    if subgraph.vcount() > 1:
+                        # run HDBscan on subgraphs with at least two nodes
+                        outlier_subgraph = hdbscan_delete_outlier_nodes(subgraph, threshold, plot_on_off)
+                        union_graph = union_graph.union(outlier_subgraph)
+
+                # check if subgraphs are not all single nodes / union_graph is not empty
+                if union_graph.vcount() != 0:
+                    graph = union_graph
 
     return graph
 
