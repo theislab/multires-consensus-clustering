@@ -1,3 +1,4 @@
+import igraph
 from upsetplot import plot
 from matplotlib import pyplot as plt
 import bokeh
@@ -19,6 +20,7 @@ import matplotlib as mpl
 from matplotlib import cm
 import matplotlib.pyplot as plt
 import scanpy as sc
+import igraph as ig
 import numpy as np
 
 HERE = Path(__file__).parent.parent
@@ -142,7 +144,8 @@ def plot_interactive_graph(G, df_cell_probability, layout_option):
     render_graph.node_renderer.data_source.data['clustering'] = clustering_node
     render_graph.node_renderer.data_source.data['img'] = plot_node
     # edge data
-    render_graph.edge_renderer.data_source.data["weight"] = edge_weight
+    if edge_x:
+        render_graph.edge_renderer.data_source.data["weight"] = edge_weight
 
     # add vertex information with hoverTool
     node_hover = HoverTool(
@@ -175,16 +178,17 @@ def plot_interactive_graph(G, df_cell_probability, layout_option):
                                                                      min(number_cells_node), max(number_cells_node)))
 
     # add the edges to the network graph
-    render_graph.edge_renderer.data_source.data = dict(
-        start=edge_x,
-        end=edge_y)
+    if edge_x:
+        render_graph.edge_renderer.data_source.data = dict(
+            start=edge_x,
+            end=edge_y)
 
-    # edge line width based on the edge weight
-    dict_edge_weight = dict(zip(zip(edge_x, edge_y), edge_weight))
-    line_width = [dict_edge_weight[edge] * 10 for edge in zip(render_graph.edge_renderer.data_source.data["start"],
-                                                              render_graph.edge_renderer.data_source.data["end"])]
-    render_graph.edge_renderer.data_source.data["line_width"] = line_width
-    render_graph.edge_renderer.glyph.line_width = {'field': 'line_width'}
+        # edge line width based on the edge weight
+        dict_edge_weight = dict(zip(zip(edge_x, edge_y), edge_weight))
+        line_width = [dict_edge_weight[edge] * 10 for edge in zip(render_graph.edge_renderer.data_source.data["start"],
+                                                                  render_graph.edge_renderer.data_source.data["end"])]
+        render_graph.edge_renderer.data_source.data["line_width"] = line_width
+        render_graph.edge_renderer.glyph.line_width = {'field': 'line_width'}
 
     # create graph layout according to bokeh Visualizing network graphs documentation
     graph_layout = dict(zip(node_indices, zip(node_x, node_y)))
@@ -224,7 +228,6 @@ def umap_plot(df_cell_probability, adata, graph):
     for columns in df_cell_probability.columns:
         adata.obs['probability_cell_in_node'] = df_cell_probability[columns]
         file = columns + ".png"
-        #plot = sc.pl.umap(adata, color='probability_cell_in_node', show=True)
         plot = sc.pl.umap(adata, color='probability_cell_in_node', show=False)
         with BytesIO() as buf:
             plot.figure.savefig(buf, format="png", dpi=50)
@@ -234,4 +237,5 @@ def umap_plot(df_cell_probability, adata, graph):
         plot_list.append(f'<img src="data:image/png;base64,{encode_image}"/>')
         plt.close()
     graph.vs["img"] = plot_list
+
     return graph

@@ -166,17 +166,58 @@ def filter_by_node_probability(graph, threshold):
     @return: The graph without the vertices.
     """
     vertex_to_delete = []
+    vertex_probabilities = []
+
     # calculates the average probability for every vertex
     for vertex in graph.vs:
         probabilities = vertex["probability_df"]
         probability_vertex = sum(probabilities) / np.count_nonzero(probabilities)
 
-        # if below threshold deletes adds vertices to delete list
+        # save all probabilities in case all nodes are below the threshold
+        vertex_probabilities.append(probability_vertex)
+
+        # if below the threshold adds vertices to delete list
         if probability_vertex < threshold:
             vertex_to_delete.append(vertex)
 
-    # if list not empty delete the given vertices
+    # check if list is not empty
     if vertex_to_delete:
-        graph.delete_vertices(vertex_to_delete)
+        # check if vertex_to_delete are not all vertices
+        if len(vertex_to_delete) != graph.vcount():
+            graph.delete_vertices(vertex_to_delete)
+
+        # if all vertices would be deleted, set threshold to (threshold * max probability)
+        else:
+            print("Outlier probability to high, set to " + str(threshold) + " x max(node probabilities).")
+
+            # calculate the maximum node probability
+            max_probability_nodes = max(vertex_probabilities)
+
+            # set new threshold using the max probability
+            new_threshold = max_probability_nodes * threshold
+
+            # reset outlier list
+            vertex_to_delete = []
+
+            # create vertex index for fast probability computation using the vertex_probabilities
+            vertex_index = 0
+
+            # check for outliers with the new threshold
+            for vertex in graph.vs:
+
+                # if below the new_threshold adds vertices to delete list
+                if vertex_probabilities[vertex_index] < new_threshold:
+                    vertex_to_delete.append(vertex)
+
+                vertex_index += 1
+
+            # check new list is not empty
+            if vertex_to_delete:
+                # check not all vertices are deleted
+                if len(vertex_to_delete) != graph.vcount():
+                    # delete the vertices
+                    graph.delete_vertices(vertex_to_delete)
+
+
 
     return graph
