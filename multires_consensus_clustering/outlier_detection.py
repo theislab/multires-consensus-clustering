@@ -218,6 +218,4 @@ def filter_by_node_probability(graph, threshold):
                     # delete the vertices
                     graph.delete_vertices(vertex_to_delete)
 
-
-
     return graph

@@ -159,25 +159,13 @@ def plot_interactive_graph(G, df_cell_probability, layout_option):
         attachment="vertical",
     )
     plot_graph.add_tools(node_hover)
-
-
-    cmap = plt.get_cmap("plasma")
-    cNorm = col.Normalize(vmin=min(number_cells_node), vmax=max(number_cells_node))
-    scalarMap = cm.ScalarMappable(norm=cNorm, cmap=cmap)
-    norm = cNorm(number_cells_node)
-
-
-    pallet = [
-        '#%02x%02x%02x' % (r, g, b) for r, g, b, _ in scalarMap.to_rgba(norm, bytes=True, norm=False)
-    ]
-
     # assign color and size to nodes in network render_graph
     render_graph.node_renderer.glyph = Circle(size=20,
                                               fill_color=linear_cmap('number_cells_node',
                                                                      plasma(256),
                                                                      min(number_cells_node), max(number_cells_node)))
 
-    # add the edges to the network graph
+    # add the edges to the network graph, if there are any
     if edge_x:
         render_graph.edge_renderer.data_source.data = dict(
             start=edge_x,
@@ -200,9 +188,16 @@ def plot_interactive_graph(G, df_cell_probability, layout_option):
     # render the render_graph
     plot_graph.renderers.append(render_graph)
 
-    color_mapper = LogColorMapper(palette=Plasma256, low=min(number_cells_node), high=max(number_cells_node))
-    color_bar = ColorBar(color_mapper=color_mapper, label_standoff=12)
-    plot_graph.add_layout(color_bar, 'right')
+    # check if there are more then one node
+    if min(number_cells_node) != max(number_cells_node):
+        color_mapper = LogColorMapper(palette=Plasma256, low=min(number_cells_node), high=max(number_cells_node))
+        color_bar = ColorBar(color_mapper=color_mapper, label_standoff=12)
+        plot_graph.add_layout(color_bar, 'right')
+    else:
+        max_legende_value = max(len(df_cell_probability), 10000)
+        color_mapper = LogColorMapper(palette=Plasma256, low=1, high=max_legende_value)
+        color_bar = ColorBar(color_mapper=color_mapper, label_standoff=12)
+        plot_graph.add_layout(color_bar, 'right')
 
     # create file for plot, type: .html
     output_file(HERE / "plots" / "MetaGraph.html")
