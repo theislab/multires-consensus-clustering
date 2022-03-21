@@ -1,3 +1,4 @@
+import igraph
 from upsetplot import plot
 from matplotlib import pyplot as plt
 import bokeh
@@ -19,6 +20,7 @@ import matplotlib as mpl
 from matplotlib import cm
 import matplotlib.pyplot as plt
 import scanpy as sc
+import igraph as ig
 import numpy as np
 
 HERE = Path(__file__).parent.parent
@@ -142,7 +144,8 @@ def plot_interactive_graph(G, df_cell_probability, layout_option):
     render_graph.node_renderer.data_source.data['clustering'] = clustering_node
     render_graph.node_renderer.data_source.data['img'] = plot_node
     # edge data
-    render_graph.edge_renderer.data_source.data["weight"] = edge_weight
+    if edge_x:
+        render_graph.edge_renderer.data_source.data["weight"] = edge_weight
 
     # add vertex information with hoverTool
     node_hover = HoverTool(
@@ -156,35 +159,24 @@ def plot_interactive_graph(G, df_cell_probability, layout_option):
         attachment="vertical",
     )
     plot_graph.add_tools(node_hover)
-
-
-    cmap = plt.get_cmap("plasma")
-    cNorm = col.Normalize(vmin=min(number_cells_node), vmax=max(number_cells_node))
-    scalarMap = cm.ScalarMappable(norm=cNorm, cmap=cmap)
-    norm = cNorm(number_cells_node)
-
-
-    pallet = [
-        '#%02x%02x%02x' % (r, g, b) for r, g, b, _ in scalarMap.to_rgba(norm, bytes=True, norm=False)
-    ]
-
     # assign color and size to nodes in network render_graph
     render_graph.node_renderer.glyph = Circle(size=20,
                                               fill_color=linear_cmap('number_cells_node',
                                                                      plasma(256),
                                                                      min(number_cells_node), max(number_cells_node)))
 
-    # add the edges to the network graph
-    render_graph.edge_renderer.data_source.data = dict(
-        start=edge_x,
-        end=edge_y)
+    # add the edges to the network graph, if there are any
+    if edge_x:
+        render_graph.edge_renderer.data_source.data = dict(
+            start=edge_x,
+            end=edge_y)
 
-    # edge line width based on the edge weight
-    dict_edge_weight = dict(zip(zip(edge_x, edge_y), edge_weight))
-    line_width = [dict_edge_weight[edge] * 10 for edge in zip(render_graph.edge_renderer.data_source.data["start"],
-                                                              render_graph.edge_renderer.data_source.data["end"])]
-    render_graph.edge_renderer.data_source.data["line_width"] = line_width
-    render_graph.edge_renderer.glyph.line_width = {'field': 'line_width'}
+        # edge line width based on the edge weight
+        dict_edge_weight = dict(zip(zip(edge_x, edge_y), edge_weight))
+        line_width = [dict_edge_weight[edge] * 10 for edge in zip(render_graph.edge_renderer.data_source.data["start"],
+                                                                  render_graph.edge_renderer.data_source.data["end"])]
+        render_graph.edge_renderer.data_source.data["line_width"] = line_width
+        render_graph.edge_renderer.glyph.line_width = {'field': 'line_width'}
 
     # create graph layout according to bokeh Visualizing network graphs documentation
     graph_layout = dict(zip(node_indices, zip(node_x, node_y)))
@@ -196,9 +188,16 @@ def plot_interactive_graph(G, df_cell_probability, layout_option):
     # render the render_graph
     plot_graph.renderers.append(render_graph)
 
-    color_mapper = LogColorMapper(palette=Plasma256, low=min(number_cells_node), high=max(number_cells_node))
-    color_bar = ColorBar(color_mapper=color_mapper, label_standoff=12)
-    plot_graph.add_layout(color_bar, 'right')
+    # check if there are more then one node
+    if min(number_cells_node) != max(number_cells_node):
+        color_mapper = LogColorMapper(palette=Plasma256, low=min(number_cells_node), high=max(number_cells_node))
+        color_bar = ColorBar(color_mapper=color_mapper, label_standoff=12)
+        plot_graph.add_layout(color_bar, 'right')
+    else:
+        max_legende_value = max(len(df_cell_probability), 10000)
+        color_mapper = LogColorMapper(palette=Plasma256, low=1, high=max_legende_value)
+        color_bar = ColorBar(color_mapper=color_mapper, label_standoff=12)
+        plot_graph.add_layout(color_bar, 'right')
 
     # create file for plot, type: .html
     output_file(HERE / "plots" / "MetaGraph.html")
@@ -224,7 +223,6 @@ def umap_plot(df_cell_probability, adata, graph):
     for columns in df_cell_probability.columns:
         adata.obs['probability_cell_in_node'] = df_cell_probability[columns]
         file = columns + ".png"
-        #plot = sc.pl.umap(adata, color='probability_cell_in_node', show=True)
         plot = sc.pl.umap(adata, color='probability_cell_in_node', show=False)
         with BytesIO() as buf:
             plot.figure.savefig(buf, format="png", dpi=50)
@@ -234,4 +232,5 @@ def umap_plot(df_cell_probability, adata, graph):
         plot_list.append(f'<img src="data:image/png;base64,{encode_image}"/>')
         plt.close()
     graph.vs["img"] = plot_list
+
     return graph

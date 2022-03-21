@@ -112,7 +112,7 @@ def df_cell_clusters_to_labels(label_df, adata, plot_labels):
     if plot_labels:
         adata.obs["mcc_cluster_labels"] = cluster_labels
         number_clusters = np.unique(cluster_labels.values)
-        print("The graph has ", len(number_clusters) + 1, "clusters")
+        print("The graph has ", len(number_clusters), "clusters")
 
         plot = sc.pl.umap(adata, color=["mcc_cluster_labels"], show=True)
 

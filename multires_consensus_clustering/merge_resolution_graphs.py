@@ -4,7 +4,6 @@ import igraph as ig
 import multires_consensus_clustering as mcc
 
 
-
 def multiresolution_graph(clustering_data, settings_data, list_resolutions, neighbour_based):
     """
     Creates a multi-resolution graph based on the resolutions given in the list_resolutions.
@@ -250,11 +249,12 @@ def multires_community_detection(graph, clustering_data, community_detection, me
     new_probabilities = mcc.graph_nodes_cells_to_df(graph, clustering_data)
     graph.vs["probability_df"] = [new_probabilities[column].values for column in new_probabilities.columns]
 
-    # delete edges and create graph tree structure
-    graph.delete_edges()
-    graph = reconnect_graph(graph)
+    # delete edges and create graph tree structure if there is more than one node
+    if graph.vcount() != 1:
+        graph.delete_edges()
+        graph = reconnect_graph(graph)
 
-    # clean up graph by merging some edges
-    graph = mcc.merge_edges_weight_above_threshold(graph, threshold=merge_edges_threshold)
+        # clean up graph by merging some edges
+        graph = mcc.merge_edges_weight_above_threshold(graph, threshold=merge_edges_threshold)
 
     return graph
