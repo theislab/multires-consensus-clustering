@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 import igraph as ig
 import multires_consensus_clustering as mcc
+import time
 
 
 def multiresolution_graph(clustering_data, settings_data, list_resolutions, neighbour_based):
@@ -17,10 +18,11 @@ def multiresolution_graph(clustering_data, settings_data, list_resolutions, neig
     """
 
     # set maximum level for hierarchy plot
-    level_count = len(list_resolutions) + 1
+    len_list_resolutions = len(list_resolutions)
+    level_count = len_list_resolutions + 1
 
     # check if list resolution contains less the two resolutions
-    if len(list_resolutions) <= 1:
+    if len_list_resolutions <= 1:
         print("More then one resolution needed for multi resolution graph.")
 
         return mcc.meta_graph(clustering_data, settings_data, list_resolutions[0])
@@ -50,8 +52,11 @@ def multiresolution_graph(clustering_data, settings_data, list_resolutions, neig
         # change level count
         level_resolution_2 = level_count - 1
 
+        # select all resolutions except the first
+        list_resolutions = list_resolutions[1:]
+
         # create multi-graph using the rest of the list_resolutions
-        for resolution in list_resolutions[1:]:
+        for resolution in list_resolutions:
 
             # create graph and assign the level
             resolution_2 = mcc.meta_graph(clustering_data, settings_data, resolution)
@@ -84,7 +89,7 @@ def delete_edges_single_resolution(graph):
     @return: The graph without edges; only vertices with attributes
     """
 
-    return graph.es.select(weight_gt=0).delete()
+    return graph.delete_edges()
 
 
 def merge_two_resolution_graphs(graph_1, graph_2, current_level, neighbours, clustering_data):
@@ -153,55 +158,78 @@ def reconnect_graph(graph):
         based on the level of the nodes.
     """
 
-    for vertex_1 in graph.vs:
-        level_vertex_1 = vertex_1["level"]
-        for vertex_2 in graph.vs:
-            if vertex_1 != vertex_2:
-                # connects only bins next to each other
-                if vertex_2["level"] < level_vertex_1:
-                    # calculate edge weight
-                    edge_weight = mcc.weighted_jaccard(vertex_1["probability_df"], vertex_2["probability_df"])
+    # check if graph has more than one level
+    if len(set(graph.vs["level"])) != 1:
+        # if the graph has more then one level a tree structure can be created, using the resolution of the graphs
+        for vertex_1 in graph.vs:
+            level_vertex_1 = vertex_1["level"]
+            for vertex_2 in graph.vs:
+                if vertex_1 != vertex_2:
+                    # connects only bins next to each other
+                    if vertex_2["level"] < level_vertex_1:
+                        # calculate edge weight
+                        edge_weight = mcc.weighted_jaccard(vertex_1["probability_df"], vertex_2["probability_df"])
 
-                    # if the edge_weight is greater 0 the edge is added
-                    if edge_weight != 0:
-                        index_1 = vertex_1.index
-                        index_2 = vertex_2.index
-                        graph.add_edge(index_1, index_2, weight=edge_weight)
+                        # if the edge_weight is greater 0 the edge is added
+                        if edge_weight != 0:
+                            index_1 = vertex_1.index
+                            index_2 = vertex_2.index
+                            graph.add_edge(index_1, index_2, weight=edge_weight)
 
-                    # check if better edge is available for tree structure
-                    edge_list_vertex_2 = vertex_2.all_edges()
+                        # check if better edge is available for tree structure
+                        edge_list_vertex_2 = vertex_2.all_edges()
 
-                    # if the vertex has only one edge no better is available
-                    if len(edge_list_vertex_2) > 1:
-                        edges_to_delete = []
-                        current_best_weight = 0
-                        current_best_edge = None
+                        # if the vertex has only one edge no better is available
+                        if len(edge_list_vertex_2) > 1:
+                            edges_to_delete = []
+                            current_best_weight = 0
+                            current_best_edge = None
 
-                        for edge in edge_list_vertex_2:
-                            edges_to_delete.append(edge)
-                            edge_weight = edge["weight"]
+                            for edge in edge_list_vertex_2:
+                                edges_to_delete.append(edge)
+                                edge_weight = edge["weight"]
 
-                            # only check edge going from a lower resolution to a higher resolution -> tree structure
-                            if graph.vs[edge.target]["level"] < vertex_2["level"]:
-                                edges_to_delete.pop(len(edges_to_delete) - 1)
-                            else:
-                                # choose the edge with the best edge weight
-                                if edge_weight > current_best_weight:
+                                # only check edge going from a lower resolution to a higher resolution -> tree structure
+                                if graph.vs[edge.target]["level"] < vertex_2["level"]:
                                     edges_to_delete.pop(len(edges_to_delete) - 1)
-                                    if current_best_edge is not None:
-                                        edges_to_delete.append(current_best_edge)
-                                    current_best_weight = edge_weight
-                                    current_best_edge = edge
+                                else:
+                                    # choose the edge with the best edge weight
+                                    if edge_weight > current_best_weight:
+                                        edges_to_delete.pop(len(edges_to_delete) - 1)
+                                        if current_best_edge is not None:
+                                            edges_to_delete.append(current_best_edge)
+                                        current_best_weight = edge_weight
+                                        current_best_edge = edge
 
-                                # if the edges have the same edge weight choose the higher resolution one
-                                elif edge_weight == current_best_weight:
-                                    last_edge = edges_to_delete.pop(len(edges_to_delete) - 1)
-                                    if graph.vs[last_edge.target]["level"] > graph.vs[edge.target]["level"]:
-                                        edges_to_delete.append(last_edge)
-                                    else:
-                                        edges_to_delete.append(edge)
+                                    # if the edges have the same edge weight choose the higher resolution one
+                                    elif edge_weight == current_best_weight:
+                                        last_edge = edges_to_delete.pop(len(edges_to_delete) - 1)
+                                        if graph.vs[last_edge.target]["level"] > graph.vs[edge.target]["level"]:
+                                            edges_to_delete.append(last_edge)
+                                        else:
+                                            edges_to_delete.append(edge)
 
-                        graph.delete_edges(edges_to_delete)
+                            graph.delete_edges(edges_to_delete)
+
+    # otherwise returns the maximum spanning tree
+    else:
+        # calculate all edge weights for every vertex in the graph
+        for vertex_1 in graph.vs:
+            for vertex_2 in graph.vs:
+                # calculate edge weight
+                edge_weight = mcc.weighted_jaccard(vertex_1["probability_df"], vertex_2["probability_df"])
+
+                # if the edge_weight is greater 0 the edge is added
+                if edge_weight != 0:
+                    index_1 = vertex_1.index
+                    index_2 = vertex_2.index
+                    graph.add_edge(index_1, index_2, weight=edge_weight)
+
+        # invert edge weights
+        inverted_weights = [1 - edge_weight for edge_weight in graph.es["weight"]]
+
+        # create the minimum spanning tree using the inverted edge weight -> maximum spanning tree
+        graph = graph.spanning_tree(weights=inverted_weights, return_tree=True)
 
     return graph
 

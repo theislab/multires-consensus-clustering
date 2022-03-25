@@ -2,6 +2,7 @@ import igraph as ig
 import numpy as np
 import multires_consensus_clustering as mcc
 from scipy.sparse import csr_matrix
+from numba import njit
 
 
 def merge_by_list(graph_as_clustering):
@@ -16,19 +17,10 @@ def merge_by_list(graph_as_clustering):
 
     # assign attributes after merging by list
     for vertex in graph.vs:
-        probability_df_sum = vertex["probability_df"][0]
-        number_of_dfs = len(vertex["probability_df"])
-
         # set vertex index
         vertex_index = vertex.index
 
-        # add elements of all probability_dfs in a vertex
-        for probability_df_list in vertex["probability_df"][1:]:
-            probability_df_sum = [element_list_1 + element_list_2 for element_list_1, element_list_2 in
-                                  zip(probability_df_sum, probability_df_list)]
-
         # create new list of attributes for merged nodes
-        graph.vs[vertex_index]["probability_df"] = [elements_df / number_of_dfs for elements_df in probability_df_sum]
         graph.vs[vertex_index]["name"] = sum(vertex["name"], [])
         graph.vs[vertex_index]["clustering"] = sum(vertex["clustering"], [])
         graph.vs[vertex_index]["cell"] = sum(vertex["cell"], [])
@@ -47,10 +39,8 @@ def create_distance_matrix(graph):
     @return: Returns a scipy sparse csr matrix containing all edges and shortest paths, (vertex, vertex) path-weight
     """
 
-    path_weight = []
-    vertex_from_list = []
-    vertex_to_list = []
-    vertex_from = 0
+    # create variables
+    path_weight, vertex_from_list, vertex_to_list, vertex_from = [], [], [], 0
 
     for vertex in graph.vs:
         list_edges_shortest_path = graph.get_shortest_paths(vertex, to=None, weights="weight", mode='out',
@@ -98,6 +88,7 @@ def jaccard_index_two_vertices(vertex_1, vertex_2):
     return jaccard
 
 
+@njit
 def weighted_jaccard(probability_node_1, probability_node_2):
     """
     Weighted jaccard-index based on the paper "Finding the Jaccard Median"; http://theory.stanford.edu/~sergei/papers/soda10-jaccard.pdf
@@ -108,9 +99,11 @@ def weighted_jaccard(probability_node_1, probability_node_2):
         created with graph_nodes_cells_to_df and split up by column and turn int list with values.
     @return: The weighted probability_node_2 index; int.
     """
-
-    sum_min = sum([min(compare_elements) for compare_elements in zip(probability_node_1, probability_node_2)])
-    sum_max = sum([max(compare_elements) for compare_elements in zip(probability_node_1, probability_node_2)])
+    sum_min = 0
+    sum_max = 0
+    for probability_index in range(len(probability_node_1)):
+        sum_min += min(probability_node_1[probability_index], probability_node_2[probability_index])
+        sum_max += max(probability_node_1[probability_index], probability_node_2[probability_index])
 
     if sum_max == 0:
         weighted_jaccard_index = 0
