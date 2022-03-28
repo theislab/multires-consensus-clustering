@@ -68,7 +68,7 @@ def relabel_clusterings(clusterings: pd.DataFrame) -> pd.DataFrame:
     return clusterings
 
 
-# jaccrad index computation by Isaac
+# jaccrad index computation by Isaac Virshup
 @njit
 def clustering_edges_array(clustering1: "np.ndarray[int]",
                            clustering2: "np.ndarray[int]") -> "list[tuple[int, int, float]]":
@@ -139,8 +139,10 @@ def build_graph(clusters, data):
     Builds a meta-graph based on the given data (list of clusterings).
 
     Assigns each cluster for each clustering a node in the graph and calculates the edges (weighted) using the jaccard index.
-    :param data: Pandas dataframe from the single cell data.
-    :return: Returns an igraph object Graph.
+    @param clusters: Pandas dataframe with only the clusterings contained in the bin,
+        currently used for the meta-graph creation.
+    @param data: Pandas dataframe from the single cell data, contains all clusterings created.
+    @return: The created meta-graph with edges based on the Jaccard-index and vertices are the clusters of the data set.
     """
     # create graph
     G = ig.Graph()
@@ -149,16 +151,38 @@ def build_graph(clusters, data):
     combinations_of_clusters = list(itertools.combinations(clusters.columns, 2))
 
     # create variables
-    vertex_cluster_methode, vertex_cells, edge_labels = [], [], []
-    vertex_labels = set()
+    vertex_cluster_methode, vertex_cells, edge_labels, vertex_labels = [], [], [], []
 
+    # added vertices and vertices information to the graph
+    # iterate through all clusterings in the selected bin
+    for cluster_methode in clusters.columns:
+        # select the unique cluster with the clusterings and add vertices for each of them
+        for cluster_number in np.unique(clusters[cluster_methode].values):
+            # name of the clustering
+            vertex_from_cluster = " ".join([cluster_methode, ":", str(cluster_number)])
+            G.add_vertices(vertex_from_cluster)
+
+            # vertex information about the cluster
+            vertex_labels.append(vertex_from_cluster)
+            vertex_cluster_methode.append(cluster_methode)
+
+            # add cells of the cluster to the vertex
+            cell_data = data["cell"].values[np.where(clusters[cluster_methode] == cluster_number)].tolist()
+            vertex_cells.append(cell_data)
+
+    # add information to the graph
+    G.vs["name"] = vertex_labels
+    G.vs["clustering"] = vertex_cluster_methode
+    G.vs["cell"] = vertex_cells
+
+    # calculate the edges of the graph and add this
     for cluster_methode in combinations_of_clusters:
 
-        # name of the clustering methode
+        # name of the clustering methode "C001", "C002", etc.
         cluster_methode_0 = cluster_methode[0]
         cluster_methode_1 = cluster_methode[1]
 
-        # name of the cluster
+        # clustering data for each column of the data set (clusterings)
         cluster_0 = clusters[cluster_methode_0]
         cluster_1 = clusters[cluster_methode_1]
 
@@ -171,26 +195,6 @@ def build_graph(clusters, data):
             edge_end = " ".join([cluster_methode_1, ":", str(edge[1])])
             edge_weight = edge[2]
 
-            # check if node for cluster_0 is already in the graph
-            if edge_start not in vertex_labels:
-                G.add_vertices(edge_start)
-                vertex_labels.add(edge_start)
-                vertex_cluster_methode.append(cluster_methode_0)
-
-                # find all cell names of cluster_methode_0
-                cell_data = data["cell"].values[np.where(data[cluster_methode_0] == edge[0])].tolist()
-                vertex_cells.append(cell_data)
-
-            # check if node for cluster_1 is already in the graph
-            if edge_end not in vertex_labels:
-                G.add_vertices(edge_end)
-                vertex_labels.add(edge_end)
-                vertex_cluster_methode.append(cluster_methode_1)
-
-                # find all cell names of cluster_methode_1
-                cell_data = data["cell"].values[np.where(data[cluster_methode_1] == edge[1])].tolist()
-                vertex_cells.append(cell_data)
-
             # check if edge weight is zero
             if edge_weight != 0:
                 # add edge to graph
@@ -199,9 +203,6 @@ def build_graph(clusters, data):
 
     # add edge weight and name to graph
     G.es["weight"] = edge_labels
-    G.vs["name"] = list(vertex_labels)
-    G.vs["clustering"] = vertex_cluster_methode
-    G.vs["cell"] = vertex_cells
 
     return G
 
