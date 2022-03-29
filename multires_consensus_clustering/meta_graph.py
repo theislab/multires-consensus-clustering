@@ -4,8 +4,8 @@ import numpy as np
 import pandas as pd
 import itertools
 import multires_consensus_clustering as mcc
+import seaborn as sns
 from multires_consensus_clustering import binning
-import time
 
 
 def meta_graph(clustering_data, settings_data, bin):
@@ -144,7 +144,6 @@ def build_graph(clusters, data):
     @param data: Pandas dataframe from the single cell data, contains all clusterings created.
     @return: The created meta-graph with edges based on the Jaccard-index and vertices are the clusters of the data set.
     """
-
     # create graph
     graph = ig.Graph()
 
@@ -176,6 +175,7 @@ def build_graph(clusters, data):
 
             # check if node for cluster_0 is already in the graph
             if edge_start not in vertex_labels:
+                graph.add_vertices(edge_start)
                 vertex_labels.add(edge_start)
                 vertex_cluster_methode.append(cluster_methode_0)
 
@@ -185,6 +185,7 @@ def build_graph(clusters, data):
 
             # check if node for cluster_1 is already in the graph
             if edge_end not in vertex_labels:
+                graph.add_vertices(edge_end)
                 vertex_labels.add(edge_end)
                 vertex_cluster_methode.append(cluster_methode_1)
 
@@ -198,19 +199,14 @@ def build_graph(clusters, data):
                 edges_to_graph.append((edge_start, edge_end))
                 edge_labels.append(np.round(edge_weight, 5))
 
-    # add vertices to graph
-    graph.add_vertices(list(vertex_labels))
-
-    # add vertex information to the graph
-    graph.vs["name"] = list(vertex_labels)
-    graph.vs["clustering"] = vertex_cluster_methode
-    graph.vs["cell"] = vertex_cells
-
     # add edges to the graph
     graph.add_edges(edges_to_graph)
 
     # add edge weight and name to graph
     graph.es["weight"] = edge_labels
+    graph.vs["name"] = list(vertex_labels)
+    graph.vs["clustering"] = vertex_cluster_methode
+    graph.vs["cell"] = vertex_cells
 
     return graph
 
