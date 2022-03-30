@@ -106,6 +106,9 @@ def merge_two_resolution_graphs(graph_1, graph_2, current_level, neighbours, clu
     @return: The merged graph.
     """
 
+    # create edge lists
+    edge_list, edge_weights = [], []
+
     # to check the graph merger visually
     graph_1.vs["graph"] = [1] * graph_1.vcount()
     graph_2.vs["graph"] = [2] * graph_2.vcount()
@@ -128,9 +131,8 @@ def merge_two_resolution_graphs(graph_1, graph_2, current_level, neighbours, clu
 
                     # if the edge_weight is greater 0 the edge is added
                     if edge_weight != 0:
-                        index_1 = vertex_1.index
-                        index_2 = vertex_2.index
-                        graph.add_edge(index_1, index_2, weight=edge_weight)
+                        edge_list.append((vertex_1, vertex_2))
+                        edge_weights.append(edge_weight)
 
     # connects all vertices
     else:
@@ -142,9 +144,14 @@ def merge_two_resolution_graphs(graph_1, graph_2, current_level, neighbours, clu
 
                 # if the edge_weight is greater 0 the edge is added
                 if edge_weight != 0:
-                    index_1 = vertex_1.index
-                    index_2 = vertex_2.index
-                    graph.add_edge(index_1, index_2, weight=edge_weight)
+                    edge_list.append((vertex_1, vertex_2))
+                    edge_weights.append(edge_weight)
+
+    # add edges to the graph
+    graph.add_edges(edge_list)
+
+    # add edge weights to the graph
+    graph.es["weight"] = edge_weights
 
     return graph
 
