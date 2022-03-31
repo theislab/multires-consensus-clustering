@@ -223,14 +223,15 @@ def reconnect_graph(graph):
         # calculate all edge weights for every vertex in the graph
         for vertex_1 in graph.vs:
             for vertex_2 in graph.vs:
-                # calculate edge weight
-                edge_weight = mcc.weighted_jaccard(vertex_1["probability_df"], vertex_2["probability_df"])
+                if vertex_1 != vertex_2:
+                    # calculate edge weight
+                    edge_weight = mcc.weighted_jaccard(vertex_1["probability_df"], vertex_2["probability_df"])
 
-                # if the edge_weight is greater 0 the edge is added
-                if edge_weight != 0:
-                    index_1 = vertex_1.index
-                    index_2 = vertex_2.index
-                    graph.add_edge(index_1, index_2, weight=edge_weight)
+                    # if the edge_weight is greater 0 the edge is added
+                    if edge_weight != 0:
+                        index_1 = vertex_1.index
+                        index_2 = vertex_2.index
+                        graph.add_edge(index_1, index_2, weight=edge_weight)
 
         # invert edge weights
         inverted_weights = [1 - edge_weight for edge_weight in graph.es["weight"]]
@@ -289,7 +290,8 @@ def multires_community_detection(graph, clustering_data, community_detection, me
         graph.delete_edges()
         graph = reconnect_graph(graph)
 
-        # clean up graph by merging some edges
-        graph = mcc.merge_edges_weight_above_threshold(graph, threshold=merge_edges_threshold)
+        if graph.ecount() > 0:
+            # clean up graph by merging some edges
+            graph = mcc.merge_edges_weight_above_threshold(graph, threshold=merge_edges_threshold)
 
     return graph
