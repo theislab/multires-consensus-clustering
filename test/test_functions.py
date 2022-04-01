@@ -133,6 +133,82 @@ def test_merge_nodes():
     assert number_nodes_start - 2 == graph.vcount()
 
 
+def test_merge_edges():
+    """
+    Test the merger of edge above a selected threshold
+    """
+
+    # create random graph
+    graph = igraph.Graph.GRG(n=10, radius=2)
+
+    name, clustering, cell = [], [], []
+
+    # create attributes for the generated graph
+    for i in graph.vs.indices:
+        name.append(str(uuid.uuid4())[0:6] + str(i))
+        clustering.append(str(uuid.uuid4())[0:6] + str(i))
+        cell.append([str(uuid.uuid4())[0:6] + str(i), str(uuid.uuid4())[0:6] + str(i), str(uuid.uuid4())[0:6] + str(i)])
+
+    edge_weights = np.random.rand(1, graph.ecount()).tolist()[0]
+    threshold = max(edge_weights) * 0.9
+
+    graph.es["weight"] = edge_weights
+
+    graph.vs["name"] = name
+    graph.vs["clustering"] = clustering
+    graph.vs["cell"] = cell
+
+    merged_graph = mcc.merge_edges_weight_above_threshold(graph, threshold)
+
+    assert max(merged_graph.es["weight"]) < threshold
+
+
+def test_merge_edge_meta_graph():
+    """
+    Test if edge weights and vertices are merged correctly.
+    """
+    # create the graph
+    number_of_clusters_data = mcc.sort_by_number_clusters(settings_data, clustering_data, 4)
+    graph = mcc.build_graph(number_of_clusters_data, clustering_data)
+
+    # set the threshold
+    threshold = 0.4
+
+    # merge edges above threshold
+    merged_graph = mcc.merge_edges_weight_above_threshold(graph, threshold)
+
+    list_vertex_names = graph.vs["name"]
+
+    list_edge_to_merge = []
+
+    # select all edges that would be merged
+    for edge in graph.es:
+        if edge["weight"] >= threshold:
+            list_edge_to_merge.append({edge.source, edge.target})
+
+    # use the set intersection to group them
+    list_vertices_to_merge = [list(vertex_group) for vertex_group in mcc.merge_list_of_sets(list_edge_to_merge)]
+
+    # take the vertex indices and replace them with names
+    merged_names = []
+    for vertex_group in list_vertices_to_merge:
+        vertex_group_names = []
+        for vertex in vertex_group:
+            vertex_group_names.append(graph.vs[vertex]["name"])
+
+        merged_names.append(vertex_group_names)
+
+    # test all edges above the threshold are merged
+    assert max(merged_graph.es["weight"]) < threshold
+
+    # assert vertices are merged correctly
+    assert set(merged_names[0]) == set(merged_graph.vs["name"][0])
+
+    assert 1 == len(merged_graph.vs["name"][1])
+
+    assert set(merged_names[1]) == set(merged_graph.vs["name"][2])
+
+
 def test_benchmark_speed():
     """
     Test the speed of the graph construction for multiple interations
@@ -149,3 +225,4 @@ def test_benchmark_speed():
         mcc.build_graph(number_of_clusters_data, clustering_data)
 
     print((time.time() - start) / number_of_iterations)
+

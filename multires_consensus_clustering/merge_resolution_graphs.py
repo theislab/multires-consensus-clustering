@@ -294,4 +294,11 @@ def multires_community_detection(graph, clustering_data, community_detection, me
             # clean up graph by merging some edges
             graph = mcc.merge_edges_weight_above_threshold(graph, threshold=merge_edges_threshold)
 
+            # recalculate the probabilities based on the new merged nodes
+            new_probabilities = mcc.graph_nodes_cells_to_df(graph, clustering_data)
+            graph.vs["probability_df"] = [new_probabilities[column].values for column in new_probabilities.columns]
+
+            if graph.vcount() != 1:
+                graph.delete_edges()
+                graph = reconnect_graph(graph)
     return graph

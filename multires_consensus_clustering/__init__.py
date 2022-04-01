@@ -10,7 +10,7 @@ from .graph_analysis import create_distance_matrix, weighted_jaccard, jaccard_in
 from. graph_community_detection import igraph_community_detection, contract_graph, hdbscan_community_detection, \
     component_merger
 from .interactive_plot import plot_interactive_graph, interactive_plot, umap_plot
-from .merge_nodes import merge_nodes, merge_edges_weight_above_threshold
+from .merge_nodes import merge_nodes, merge_edges_weight_above_threshold, merge_list_of_sets
 from .cell_labels_scanpy import relabel_cell, true_labels, graph_to_cell_labels_df, df_cell_clusters_to_labels
 from .outlier_detection import delete_small_node_communities, delete_edges_below_threshold, \
     hdbscan_outlier, delete_nodes_with_zero_degree, filter_by_node_probability

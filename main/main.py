@@ -5,6 +5,7 @@ import scanpy as sc
 import pandas as pd
 import igraph as ig
 import numpy as np
+from optimization_using_saved_graphs import optimization_saved_graphs as opti
 
 HERE = Path(__file__).parent.parent
 
@@ -86,10 +87,23 @@ if __name__ == "__main__":
     adata = sc.read_h5ad(HERE / "data/cite/cite_gex_processed_training.h5ad")
     adata_s2d1 = adata[adata.obs.batch == "s2d1", :].copy()
 
+    # simulated data
+    #adata = sc.read_h5ad(HERE / "data/cite/sim-groups-contsclust.h5ad")
+    #clustering_data = adata.uns["constclust"]['clusterings']
+    #settings_data = adata.uns["constclust"]['settings']
+    #clustering_data = clustering_data.reset_index()
+    #clustering_data = clustering_data.rename({'index': 'cell'}, axis=1)
+
+    # check if adata file has calculated the umap plot
+    if "X_umap" not in adata.obsm_keys():
+        sc.tl.umap(adata)
+
     print("Read data, Time:", time.time() - start)
 
     run_multires_consensus_clustering(clustering_data, settings_data, adata=adata_s2d1,
-                                      community_mulit_res="leiden", merge_edges_threshold=1,
+                                      community_mulit_res="leiden", merge_edges_threshold=0.8,
                                       outlier_mulit_res="probability", outlier_threshold=0.9,
                                       connect_graph_neighbour_based=True, plot_labels=False, plot_interactive_graph=False)
 
+
+    #opti.work_on_saved_graphs()
