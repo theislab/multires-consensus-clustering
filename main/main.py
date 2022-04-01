@@ -5,7 +5,6 @@ import scanpy as sc
 import pandas as pd
 import igraph as ig
 import numpy as np
-from optimization_using_saved_graphs import optimization_saved_graphs as opti
 
 HERE = Path(__file__).parent.parent
 
@@ -104,6 +103,3 @@ if __name__ == "__main__":
                                       community_mulit_res="leiden", merge_edges_threshold=0.8,
                                       outlier_mulit_res="probability", outlier_threshold=0.9,
                                       connect_graph_neighbour_based=True, plot_labels=False, plot_interactive_graph=False)
-
-
-    #opti.work_on_saved_graphs()
