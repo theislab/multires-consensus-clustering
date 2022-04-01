@@ -60,7 +60,7 @@ def run_multires_consensus_clustering(clustering_data, settings_data, adata, plo
 
     # create clustering labels and plot them if plot_labels == True
     df_clusters = mcc.graph_to_cell_labels_df(multires_graph)
-    cluster_labels = mcc.df_cell_clusters_to_labels(df_clusters, adata_s2d1, plot_labels)
+    cluster_labels = mcc.df_cell_clusters_to_labels(df_clusters, adata, plot_labels)
 
     # plot multi-graph with bokeh
     if plot_interactive_graph:
@@ -84,7 +84,7 @@ if __name__ == "__main__":
 
     # read adata file and select the set used for the clustering.
     adata = sc.read_h5ad(HERE / "data/cite/cite_gex_processed_training.h5ad")
-    adata_s2d1 = adata[adata.obs.batch == "s2d1", :].copy()
+    adata = adata[adata.obs.batch == "s2d1", :].copy()
 
     # simulated data
     #adata = sc.read_h5ad(HERE / "data/cite/sim-groups-contsclust.h5ad")
@@ -99,7 +99,7 @@ if __name__ == "__main__":
 
     print("Read data, Time:", time.time() - start)
 
-    run_multires_consensus_clustering(clustering_data, settings_data, adata=adata_s2d1,
+    run_multires_consensus_clustering(clustering_data, settings_data, adata=adata,
                                       community_mulit_res="leiden", merge_edges_threshold=0.8,
                                       outlier_mulit_res="probability", outlier_threshold=0.9,
                                       connect_graph_neighbour_based=True, plot_labels=False, plot_interactive_graph=False)
