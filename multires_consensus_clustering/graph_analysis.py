@@ -15,17 +15,19 @@ def merge_by_list(graph_as_clustering):
     # combine strings of nodes by components and take attributes by list
     graph = graph_as_clustering.cluster_graph(combine_vertices=list, combine_edges=max)
 
-    # assign attributes after merging by list
-    for vertex in graph.vs:
-        # set vertex index
-        vertex_index = vertex.index
+    # if done in the multi-res-graph step the edge attributes would be list of list and have to bel flattened
+    if type(graph.vs[0]["name"][0]) == list:
+        # assign attributes after merging by list
+        for vertex in graph.vs:
+            # set vertex index
+            vertex_index = vertex.index
 
-        # create new list of attributes for merged nodes
-        graph.vs[vertex_index]["name"] = sum(vertex["name"], [])
-        graph.vs[vertex_index]["clustering"] = sum(vertex["clustering"], [])
-        graph.vs[vertex_index]["cell"] = sum(vertex["cell"], [])
-        graph.vs[vertex_index]["level"] = max(vertex["level"])
-        graph.vs[vertex_index]["cell_index"] = vertex["cell_index"][0]
+            # create new list of attributes for merged nodes
+            graph.vs[vertex_index]["name"] = sum(vertex["name"], [])
+            graph.vs[vertex_index]["clustering"] = sum(vertex["clustering"], [])
+            graph.vs[vertex_index]["cell"] = sum(vertex["cell"], [])
+            graph.vs[vertex_index]["level"] = max(vertex["level"])
+            graph.vs[vertex_index]["cell_index"] = vertex["cell_index"][0]
 
     return graph
 
