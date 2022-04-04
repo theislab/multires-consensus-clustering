@@ -59,7 +59,7 @@ def hdbscan_community_detection(graph):
         # create a distance matrix for the graph if possible
         distance_matrix = mcc.create_distance_matrix(graph)
 
-        clusterer = hdbscan.HDBSCAN(metric="precomputed", min_samples=2).fit(distance_matrix)
+        clusterer = hdbscan.HDBSCAN(metric="precomputed", min_samples=2, allow_single_cluster=True).fit(distance_matrix)
         labels = clusterer.labels_
 
         # hdbscan has an integrated outlier detection for clustering -> delete those nodes

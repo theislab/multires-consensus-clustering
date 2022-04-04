@@ -268,8 +268,8 @@ def multires_community_detection(graph, clustering_data, community_detection, me
     if community_detection == "leiden":
         # uses the leiden algorithm for community detection
         vertex_clustering = ig.Graph.community_leiden(graph, weights="weight")
-    elif community_detection == "hdbscan":
-        # uses the hdbscan for community detection
+    elif community_detection == "hdbscan" and graph.vcount() > 1 and graph.ecount() > 0:
+        # use hdbscan for community detection
         vertex_clustering = mcc.hdbscan_community_detection(graph)
     elif community_detection == "component":
         # splits the graph into components and merges these components into a single node
