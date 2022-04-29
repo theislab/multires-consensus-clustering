@@ -3,7 +3,8 @@ Code for the multi-resolution consensus clustering project.
 """
 __version__ = "0.0.1"
 
-from .find_best_parameters import find_best_parameters
+
+from .cluster_consitancy import calculate_accuracy
 from .binning import bin_n_clusters
 from .meta_graph import build_graph, sort_by_number_clusters, meta_graph, read_data, \
     create_and_plot_single_resolution_graph
