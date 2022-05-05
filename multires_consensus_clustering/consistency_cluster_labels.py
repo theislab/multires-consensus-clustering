@@ -6,7 +6,7 @@ import itertools
 import matplotlib.pyplot as plt
 
 
-def calculate_accuracy(adata, clustering_data, settings_data):
+def cluster_consistency(adata, clustering_data, settings_data):
     """
     Check how much the labels differentiate throughout the runs.
 
