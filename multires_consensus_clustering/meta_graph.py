@@ -1,3 +1,4 @@
+import igraph
 from numba import njit
 import igraph as ig
 import numpy as np
@@ -46,7 +47,7 @@ def create_and_plot_single_resolution_graph(clustering_data, settings_data, adat
     @return: Returns the created meta-graph.
     """
     # single resolution meta graph
-    graph = mcc.meta_graph(clustering_data, settings_data, [bin_number])
+    graph = mcc.meta_graph(clustering_data, settings_data, bin_number)
 
     # create an interactive plot for the single resolution meta graph
     mcc.interactive_plot(adata_s2d1, clustering_data, graph, create_upsetplot=False,

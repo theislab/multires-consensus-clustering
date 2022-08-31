@@ -68,7 +68,12 @@ def graph_to_cell_labels_df(graph):
         'probability': pd.Series([-1] * len_df, dtype='float'),
         'cluster_labels': [str(0)] * len_df,
         'level_cluster_label': [np.inf] * len_df,
+        'number_cell_occurrence': [0] * len_df,
+        'number_same_probability': [0] * len_df
     })
+
+    # get all components of the graph
+    graph_components = graph.clusters().subgraphs()
 
     cluster_label_index = 0
     for vertex in graph.vs:
@@ -88,6 +93,13 @@ def graph_to_cell_labels_df(graph):
             elif probability_cell_label_df == probability_cell_vertex:
                 df_cell_clusters.iat[index_df, 2] = str(cluster_label_index)
                 df_cell_clusters.iat[index_df, 3] = vertex_level
+
+                if probability_cell_label_df != 0:
+                    df_cell_clusters.iat[index_df, 5] += 1
+
+            # count the number of times a cell appears throughout the graph
+            if probability_cell_vertex > 0:
+                df_cell_clusters.iat[index_df, 4] += 1
 
         cluster_label_index += 1
 

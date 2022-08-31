@@ -31,6 +31,7 @@ def plot_edge_weights(graph, plot_on_off):
             plt.title("Distribution of edge weights")
             plt.hist(edge_weights, edgecolor='k', bins=40)
             plt.axvline(mean_edge_value, color='k', linestyle='dashed', linewidth=1)
+            plt.tight_layout()
             plt.show()
 
         return mean_edge_value
@@ -54,10 +55,11 @@ def upsetplot_graph_nodes(df_cell_probability):
     cell_in_node_size_upset = df_cell_probability.groupby(column_names).size()
     plot(cell_in_node_size_upset)
 
+    plt.tight_layout()
     plt.show()
 
 
-def cell_occurrence_plot(graph, adata, clustering_data):
+def cell_occurrence_plot(graph, adata, clustering_data, plot):
     """
     Creates a plot of the times each cell occurs in the graph. This plot is shown on the umap plot with the color
         beeing the number of times a cell appers in the merged nodes, summed up.
@@ -96,7 +98,11 @@ def cell_occurrence_plot(graph, adata, clustering_data):
 
     # plot cell counts with scanpy and umap
     adata.obs["cell_counts"] = cell_counts_df["cell_counts"]
-    plot = sc.pl.umap(adata, color=["cell_counts"], show=True)
+    if plot:
+        plt.tight_layout()
+        plot = sc.pl.umap(adata, color=["cell_counts"], show=True)
+
+    return cell_counts_df["cell_counts"].values
 
 
 def vertex_probabilities_plot(graph):
@@ -118,8 +124,9 @@ def vertex_probabilities_plot(graph):
 
     # plot probability distribution of the vertices as a histogram with an average line
     plt.title("Probability distribution of the nodes")
-    plt.hist(probability_vertex_list, edgecolor='k', bins=40)
+    plt.hist(probability_vertex_list, range=[0, 1], edgecolor='k', bins=40)
     plt.axvline(probability_average, color='k', linestyle='dashed', linewidth=1)
+    plt.tight_layout()
     plt.show()
 
 
@@ -136,7 +143,7 @@ def probability_umap_plot(graph, adata):
 
     # plot the probabilities with umap
     adata.obs["mcc_cluster_probabilities"] = df_clusters["probability"]
-    sc.pl.umap(adata, color=["mcc_cluster_probabilities"], show=True)
+    sc.pl.umap(adata, vmin=0, vmax=1, color=["mcc_cluster_probabilities"], show=True)
 
 
 def node_level_plot(graph, adata):
@@ -152,4 +159,5 @@ def node_level_plot(graph, adata):
 
     # plot the levels with umap
     adata.obs["mcc_cluster_level"] = df_clusters["level_cluster_label"]
+    plt.tight_layout()
     sc.pl.umap(adata, color=["mcc_cluster_level"], show=True)
