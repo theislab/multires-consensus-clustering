@@ -130,20 +130,26 @@ def vertex_probabilities_plot(graph):
     plt.show()
 
 
-def probability_umap_plot(graph, adata):
+def probability_umap_plot(df_clusters, adata):
     """
     Display's the probabilities of the cells in the final cluster labels assignment.
 
-    @param graph: The graph from which the final cluster labels are generated.
+    @param df_clusters: The pandas DataFrame created from the multi-res graph [mcc.graph_to_cell_labels_df(graph)].
+        This can either plot the original probabilities from the graph or overwrite these probabilities with the new
+        uncertainty measure frome the uncertainty_measure_cells(graph, adata) function, which creates a better estimation.
+        E.g. df_clusters["probability"].
     @param adata: The adata file on which the mcc function is based.
     """
 
-    # get df of the cluster labels, probabilities and levels from the graph
-    df_clusters = mcc.graph_to_cell_labels_df(graph)
+    # get probably values of the graph, created with the uncertainty_measure_cells function
+    estimator = df_clusters["probability"]
 
-    # plot the probabilities with umap
-    adata.obs["mcc_cluster_probabilities"] = df_clusters["probability"]
-    sc.pl.umap(adata, vmin=0, vmax=1, color=["mcc_cluster_probabilities"], show=True)
+    # create an adata label with the new probabilities on the UMAP-plot.
+    adata.obs["mcc_cluster_probabilities"] = estimator
+    plt.tight_layout()
+
+    # plot UMAP-plot of the probabilities suing the scanpy package
+    sc.pl.umap(adata, color=["mcc_cluster_probabilities"], show=True)
 
 
 def node_level_plot(graph, adata):
