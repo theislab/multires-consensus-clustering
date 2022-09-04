@@ -1,4 +1,3 @@
-import igraph as ig
 import numpy as np
 import scanpy as sc
 import pandas as pd
@@ -100,7 +99,7 @@ def cell_occurrence_plot(graph, adata, clustering_data, plot):
     adata.obs["cell_counts"] = cell_counts_df["cell_counts"]
     if plot:
         plt.tight_layout()
-        plot = sc.pl.umap(adata, color=["cell_counts"], show=True)
+        sc.pl.umap(adata, color=["cell_counts"], show=True)
 
     return cell_counts_df["cell_counts"].values
 

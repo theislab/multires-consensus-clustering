@@ -1,9 +1,5 @@
-import igraph as ig
-import numpy as np
-import scanpy as sc
-import pandas as pd
 import multires_consensus_clustering as mcc
-import matplotlib.pyplot as plt
+
 
 
 def uncertainty_measure_cells(graph):
