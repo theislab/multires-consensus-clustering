@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from upsetplot import plot
 
 
-def plot_edge_weights(graph, plot_on_off):
+def plot_edge_weights(graph):
     """
     Create a bar-chart of the edge weight based on the given graph.
 
@@ -18,6 +18,9 @@ def plot_edge_weights(graph, plot_on_off):
 
     # if there are no edges, return 0
     if number_edges == 0:
+
+        print("Graph has no edges.")
+
         return 0
 
     # else plot barchart of edge weights and return the averge edge weight
@@ -25,13 +28,12 @@ def plot_edge_weights(graph, plot_on_off):
         edge_weights = graph.es["weight"]
         mean_edge_value = sum(edge_weights) / len(edge_weights)
 
-        if plot_on_off:
-            # distribution edge weights, histogram with average line
-            plt.title("Distribution of edge weights")
-            plt.hist(edge_weights, edgecolor='k', bins=40)
-            plt.axvline(mean_edge_value, color='k', linestyle='dashed', linewidth=1)
-            plt.tight_layout()
-            plt.show()
+        # distribution edge weights, histogram with average line
+        plt.title("Distribution of edge weights")
+        plt.hist(edge_weights, edgecolor='k', bins=40)
+        plt.axvline(mean_edge_value, color='k', linestyle='dashed', linewidth=1)
+        plt.tight_layout()
+        plt.show()
 
         return mean_edge_value
 
@@ -58,10 +60,11 @@ def upsetplot_graph_nodes(df_cell_probability):
     plt.show()
 
 
-def cell_occurrence_plot(graph, adata, clustering_data, plot):
+def cell_occurrence_plot(graph, adata, clustering_data):
     """
     Creates a plot of the times each cell occurs in the graph. This plot is shown on the umap plot with the color
         beeing the number of times a cell appers in the merged nodes, summed up.
+
     @param clustering_data: The clustering data from which the graph is created.
     @param adata: The adata file on which the clustering is based.
     @param graph: The graph from which the cell counts should be generated. iGraph graph, need attribute .vs["cell"]
@@ -97,9 +100,8 @@ def cell_occurrence_plot(graph, adata, clustering_data, plot):
 
     # plot cell counts with scanpy and umap
     adata.obs["cell_counts"] = cell_counts_df["cell_counts"]
-    if plot:
-        plt.tight_layout()
-        sc.pl.umap(adata, color=["cell_counts"], show=True)
+    plt.tight_layout()
+    sc.pl.umap(adata, color=["cell_counts"], show=True)
 
     return cell_counts_df["cell_counts"].values
 
