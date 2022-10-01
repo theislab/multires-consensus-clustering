@@ -16,14 +16,11 @@ def plot_edge_weights(graph):
     """
     number_edges = graph.ecount()
 
-    # if there are no edges, return 0
+    # if there are no edges print exception statement
     if number_edges == 0:
-
         print("Graph has no edges.")
 
-        return 0
-
-    # else plot barchart of edge weights and return the averge edge weight
+    # else plot barchart of edge weights and return the average edge weight
     else:
         edge_weights = graph.es["weight"]
         mean_edge_value = sum(edge_weights) / len(edge_weights)
@@ -33,9 +30,9 @@ def plot_edge_weights(graph):
         plt.hist(edge_weights, edgecolor='k', bins=40)
         plt.axvline(mean_edge_value, color='k', linestyle='dashed', linewidth=1)
         plt.tight_layout()
-        plt.show()
 
-        return mean_edge_value
+        # plot bar chart of the edge weights
+        plt.show()
 
 
 def upsetplot_graph_nodes(df_cell_probability):
@@ -45,18 +42,28 @@ def upsetplot_graph_nodes(df_cell_probability):
     @param df_cell_probability: Pandas dataframe with cells and probabilities for each merged node.
     """
 
+    # group cells throughout the dataframe
     df_cell_probability = df_cell_probability.groupby(['cell']).sum()
 
+    # create a binary layout in the data frame if the cell occurs in the given node or not
     df_cell_probability[df_cell_probability > 0] = True
     df_cell_probability[df_cell_probability == 0] = False
 
+    # create a list for each column name
     column_names = []
+
+    # iterate through all the clusters of the dataframe
     for name_node_cluster in df_cell_probability.columns.values:
         column_names.append(name_node_cluster)
-    cell_in_node_size_upset = df_cell_probability.groupby(column_names).size()
-    plot(cell_in_node_size_upset)
 
+    # transform the dataframe into a fitting format of the upset plot
+    cell_in_node_size_upset = df_cell_probability.groupby(column_names).size()
+
+    # create a plot using the data frame and the plot function from the upset package
+    plot(cell_in_node_size_upset)
     plt.tight_layout()
+
+    # display the upset plot of shared cell by the nodes
     plt.show()
 
 
@@ -70,8 +77,10 @@ def cell_occurrence_plot(graph, adata, clustering_data):
     @param graph: The graph from which the cell counts should be generated. iGraph graph, need attribute .vs["cell"]
     """
 
+    # create list of cells
     cells_list = []
 
+    # append the number a cell occurs in a vertex for every node in the graph
     for cells_vertex in graph.vs["cell"]:
         cells_list.append(sum(cells_vertex, []))
 
@@ -101,9 +110,9 @@ def cell_occurrence_plot(graph, adata, clustering_data):
     # plot cell counts with scanpy and umap
     adata.obs["cell_counts"] = cell_counts_df["cell_counts"]
     plt.tight_layout()
-    sc.pl.umap(adata, color=["cell_counts"], show=True)
 
-    return cell_counts_df["cell_counts"].values
+    # display plot of cell occurrence using scanpy umap plot
+    sc.pl.umap(adata, color=["cell_counts"], show=True)
 
 
 def vertex_probabilities_plot(graph):
@@ -113,6 +122,7 @@ def vertex_probabilities_plot(graph):
     @param graph: The graph from which the probabilities should be calculated. iGraph graph, need attribute .vs["probability_df"]
     """
 
+    # create list for vertex probabilities
     probability_vertex_list = []
 
     # sum up all edge weights and calculate the average per vertex
@@ -128,6 +138,8 @@ def vertex_probabilities_plot(graph):
     plt.hist(probability_vertex_list, range=[0, 1], edgecolor='k', bins=40)
     plt.axvline(probability_average, color='k', linestyle='dashed', linewidth=1)
     plt.tight_layout()
+
+    # display plot of the vertex probabilities
     plt.show()
 
 
@@ -164,7 +176,9 @@ def node_level_plot(graph, adata):
     # get df of the cluster labels, probabilities and levels from the graph
     df_clusters = mcc.graph_to_cell_labels_df(graph)
 
-    # plot the levels with umap
+    # create a umap plot based on node level
     adata.obs["mcc_cluster_level"] = df_clusters["level_cluster_label"]
     plt.tight_layout()
+
+    # plot the levels using scanpy and umap
     sc.pl.umap(adata, color=["mcc_cluster_level"], show=True)
