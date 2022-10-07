@@ -5,6 +5,7 @@ __version__ = "0.0.1"
 
 
 from .consistency_cluster_labels import cluster_consistency
+from .uncertainty_measure import uncertainty_measure_cells
 from .binning import bin_n_clusters
 from .meta_graph import build_graph, sort_by_number_clusters, meta_graph, read_data, \
     create_and_plot_single_resolution_graph

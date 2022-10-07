@@ -62,7 +62,7 @@ def interactive_plot(adata_s2d1, clustering_data, graph, create_upsetplot, creat
 
     # create an bar-chart with all edge weights
     if create_edge_weight_barchart:
-        mcc.plot_edge_weights(graph, plot_on_off=True)
+        mcc.plot_edge_weights(graph)
 
     # create an upsetplot for the data
     if create_upsetplot:
