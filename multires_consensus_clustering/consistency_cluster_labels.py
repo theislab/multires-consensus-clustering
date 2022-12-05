@@ -6,10 +6,11 @@ import itertools
 import matplotlib.pyplot as plt
 
 
-def cluster_consistency(adata, clustering_data, settings_data):
+def cluster_consistency(adata, clustering_data, settings_data, labels_df):
     """
     Check how much the labels differentiate throughout the runs.
 
+    @param labels_df: True labels dataframe from the data directory
     @param settings_data: The settings data of the clusterings, number of clusters parameters, etc.
     @param clustering_data: The clustering data based of the adata file, as a pandas dataframe, e.g. cell, C001, ...
     @param adata: The single cell adata file.
@@ -17,131 +18,82 @@ def cluster_consistency(adata, clustering_data, settings_data):
     """
 
     # set values for the mcc function
-    connect_graph_neighbour_based = [True, False]
-    merge_edges_threshold = [0.8, 0.9, 1.0]
-    outlier_threshold = [0.5, 0.8, 0.9]
-    community_detection_function = ["leiden", "component"]
-    outlier_detection = ["probability"]
-
-    # define number of runs
-    number_runs = 5
+    connect_graph_neighbour_based = False
+    multi_resolution_parameters = [0.005, 0.01, 0.05, 0.1, 0.5, 1, 5, 10, 50, 100, 500]
+    community_detection_function = "leiden"
 
     # list of all function parameters
-    function_parameters = [connect_graph_neighbour_based, merge_edges_threshold, outlier_threshold,
-                           community_detection_function]
+    #function_parameters = [connect_graph_neighbour_based, community_detection_function, multi_resolution_parameters]
 
     # combination of all function parameters
-    combinations_parameters = list(itertools.product(*function_parameters))
+    #combinations_parameters = list(itertools.product(*function_parameters))
 
     # print the number of combinations
-    print("Number of combinations: ", len(combinations_parameters))
+    #print("Number of combinations: ", len(combinations_parameters))
 
     # create a dataframe for the cluster labels
     consistency_df = pd.DataFrame()
 
-    # run the mcc function multiple times
-    for parameters in combinations_parameters:
+    # create a list of true labels based on the data given (NeurIPS)
+    label_dict = dict(zip(labels_df["cell"], labels_df["cell_type"]))
+    true_labels = [label_dict[cell] for cell in list(adata.obs.index)]
 
-        # set parameters
-        connect_graph_neighbour_based = parameters[0]
-        merge_edges_threshold = parameters[1]
-        outlier_threshold = parameters[2]
-        community_detection_function = parameters[3]
+    # run evaluation for the multi resolution parameter
+    for multi_resolution in multi_resolution_parameters:
 
         # set function name
-        if connect_graph_neighbour_based:
-            connect_graph = "N"
-        else:
-            connect_graph = "A"
+        function_name = "MR_" + str(multi_resolution).replace('.', '')
 
-        if community_detection_function == "leiden":
-            comm_detect = "Le"
-        elif community_detection_function == "component":
-            comm_detect = "Co"
-        else:
-            comm_detect = "Lo"
+        # multi resolution meta graph
+        multires_graph = mcc.multiresolution_graph(clustering_data, settings_data, "all",
+                                                   neighbour_based=connect_graph_neighbour_based)
 
-        function_name = "MRCC_" + connect_graph + "_" + comm_detect + "_O" + str(outlier_threshold).replace('.', '') + \
-                        "_M" + str(merge_edges_threshold).replace('.', '')
+        # multi resolution graph community detection
+        multires_graph = mcc.multires_community_detection(multires_graph,
+                                                          community_detection=community_detection_function,
+                                                          clustering_data=clustering_data,
+                                                          multi_resolution=multi_resolution)
 
-        for index_test in range(number_runs):
-            # multi resolution meta graph
-            multires_graph = mcc.multiresolution_graph(clustering_data, settings_data, "all",
-                                                       neighbour_based=connect_graph_neighbour_based)
+        # create the final cluster labels
+        df_clusters = mcc.graph_to_cell_labels_df(multires_graph)
+        cluster_labels = mcc.df_cell_clusters_to_labels(df_clusters, adata, False)
 
-            # multi resolution graph community detection
-            multires_graph = mcc.multires_community_detection(multires_graph,
-                                                              community_detection=community_detection_function,
-                                                              merge_edges_threshold=merge_edges_threshold,
-                                                              outlier_detection=outlier_detection,
-                                                              outlier_detection_threshold=outlier_threshold,
-                                                              clustering_data=clustering_data)
-
-            # create the final cluster labels
-            df_clusters = mcc.graph_to_cell_labels_df(multires_graph)
-            cluster_labels = mcc.df_cell_clusters_to_labels(df_clusters, adata, False)
-
-            consistency_df[function_name + "_" + str(index_test)] = cluster_labels
-
-    # split dataframe columns back into the runs on the same function
-    list_function_run = np.array_split(consistency_df.columns, len(consistency_df.columns) / number_runs)
+        # add labels to dataframe
+        consistency_df[function_name] = cluster_labels
 
     # create list for the scores
-    scores_ami_all_runs, scores_rand_all_runs, list_function_used = [], [], []
+    list_ami_scores, scores_rand_all_runs, list_function_used = [], [], []
 
-    for run in list_function_run:
+    for column in consistency_df.columns:
+        # get ami score of clustering labels and true labels
+        ami_score = sklearn.metrics.adjusted_mutual_info_score(true_labels, consistency_df[column].values)
 
-        # get all combinations of the created labels in the multiple runs
-        combinations_of_clusters = list(itertools.combinations(run, 2))
-
-        # create a list for the accuracy scores
-        list_ami_scores, list_rand_scores = [], []
-
-        # set name of the functions in the same run
-        list_function_used.append(run[0][:-2])
-
-        # calculate all accuracy scores and add them to the list
-        for combination_labels in combinations_of_clusters:
-            ami_score = sklearn.metrics.adjusted_mutual_info_score(consistency_df[combination_labels[0]],
-                                                                   consistency_df[combination_labels[1]])
-
-            #rand_score = sklearn.metrics.adjusted_rand_score(consistency_df[combination_labels[0]],
-            #                                                consistency_df[combination_labels[1]])
-
-            # add scores to list
-            list_ami_scores.append(ami_score)
-            #list_rand_scores.append(rand_score)
-
-        scores_ami_all_runs.append(list_ami_scores)
-        #scores_rand_all_runs.append(list_rand_scores)
+        # add scores to list
+        list_ami_scores.append(ami_score)
 
     # create a df for the scores and plot these in a bar chart
-    df_ami = create_df_scores_and_plot(scores_ami_all_runs, list_function_used, number_runs)
-    #df_rand = create_df_scores_and_plot(scores_rand_all_runs, list_function_used, number_runs)
+    df_ami = create_df_scores_and_plot(consistency_df.columns, list_ami_scores)
 
     return df_ami
 
 
-def create_df_scores_and_plot(score_list, functions_used, number_runs):
+def create_df_scores_and_plot(functions_used, score_list):
     """
     Create a pandas df with the scores and the functions used and plot the results in a bar chart.
+
     @param score_list: A list of list wit the scores [[score_run_1, score_run_2, ...], [...],...]
     @param functions_used: A list of the names of the mcc functions used to create the scores.
-    @param number_runs: The number the functions are run
-    @return:
+    @return: Pandas dataframe with the scores as entries and function names as indices
     """
-    # create legend parameters
-    combinations_of_runs = list(itertools.combinations(range(number_runs), 2))
 
     # create dataframe with the constancy cores
-    df_consistency_scores = pd.DataFrame(score_list)
-    df_consistency_scores.columns = ["AMI" + str(i) for i in combinations_of_runs]
+    df_consistency_scores = pd.DataFrame()
     df_consistency_scores["mcc_functions"] = functions_used
-    df_consistency_scores.set_index("mcc_functions", inplace=True)
+    df_consistency_scores["mcc_scores"] = score_list
 
     # create a bar chart for the scores
-    df_consistency_scores.plot.bar()
-    plt.legend(bbox_to_anchor=(1.04, 1), loc="upper left")
+    df_consistency_scores.plot.scatter(x="mcc_functions", y="mcc_scores")
+    plt.xticks(rotation=90, ha='left')
     plt.tight_layout()
     plt.show()
 

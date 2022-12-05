@@ -65,12 +65,11 @@ def delete_nodes_with_zero_degree(graph):
     return graph
 
 
-def hdbscan_outlier(graph, threshold, plot_on_off):
+def hdbscan_outlier(graph, plot_on_off):
     """
     Uses the hdbscan density clustering to detect outlier communities in the graph and deletes them.
 
     @param plot_on_off: Turn the density distribution plot on or off, type Boolean.
-    @param threshold: 1-threshold is the quantile above which all connections are deleted.
     @param graph: The graph on which the outliers should be detected. Needs attribute graph.es["weight"].
     @return: The graph without the outlier vertices and all multiple edges combined into single connections by max weight.    """
 
@@ -84,7 +83,7 @@ def hdbscan_outlier(graph, threshold, plot_on_off):
 
             # check number of components
             if len(graph_components) == 1:
-                graph = hdbscan_delete_outlier_nodes(graph, threshold, plot_on_off)
+                graph = hdbscan_delete_outlier_nodes(graph, plot_on_off)
 
             else:
                 union_graph = ig.Graph()
@@ -94,7 +93,7 @@ def hdbscan_outlier(graph, threshold, plot_on_off):
                     # deletes single nodes
                     if subgraph.vcount() > 1:
                         # run HDBscan on subgraphs with at least two nodes
-                        outlier_subgraph = hdbscan_delete_outlier_nodes(subgraph, threshold, plot_on_off)
+                        outlier_subgraph = hdbscan_delete_outlier_nodes(subgraph, plot_on_off)
                         union_graph = union_graph.union(outlier_subgraph)
 
                 # check if subgraphs are not all single nodes / union_graph is not empty
@@ -104,7 +103,7 @@ def hdbscan_outlier(graph, threshold, plot_on_off):
     return graph
 
 
-def hdbscan_delete_outlier_nodes(graph, threshold, plot_on_off):
+def hdbscan_delete_outlier_nodes(graph, plot_on_off):
     """
     The main HDBscan outlier function. Inverts the edge weight to metric distances, calculates a distance matrix and
         uses the HDBscan outlier function to delete the outlier nodes. Afterwards edge weight are return to similarity.
@@ -124,9 +123,14 @@ def hdbscan_delete_outlier_nodes(graph, threshold, plot_on_off):
     # run HDBscan
     clusterer = hdbscan.HDBSCAN(metric="precomputed", min_samples=2, allow_single_cluster=True).fit(distance_matrix)
 
+    # get hdbscan outlier scores
+    outlier_scores_series = pd.Series(clusterer.outlier_scores_)
+    outlier_scores_max = outlier_scores_series.max()
+
+    # get threshold for outlier detection
+    threshold = (outlier_scores_max + (outlier_scores_max + outlier_scores_series.median())) / 2
+
     # hdbscan outlier detection
-    # https://hdbscan.readthedocs.io/en/latest/outlier_detection.html
-    threshold = pd.Series(clusterer.outlier_scores_).quantile(1 - threshold)
     outliers = np.where(clusterer.outlier_scores_ > threshold)[0]
 
     if plot_on_off:
@@ -157,7 +161,7 @@ def hdbscan_delete_outlier_nodes(graph, threshold, plot_on_off):
     return graph
 
 
-def filter_by_node_probability(graph, threshold):
+def filter_by_node_probability(graph):
     """
     Calculates the average probability for all cells (probability per cell > 0)
         and deletes all nodes with a probability less than the given threshold.
@@ -167,6 +171,13 @@ def filter_by_node_probability(graph, threshold):
     """
     vertex_to_delete = []
     vertex_probabilities = []
+
+    # get max probability graph
+    probability_vertex = [sum(probabilities) / np.count_nonzero(probabilities) for probabilities in graph.vs["probability_df"]]
+    max_prob = max(probability_vertex)
+    min_prob = min(probability_vertex)
+
+    threshold = (max_prob + (max_prob + min_prob) / 2) / 2
 
     # calculates the average probability for every vertex
     for vertex in graph.vs:

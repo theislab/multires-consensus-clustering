@@ -4,39 +4,45 @@ import multires_consensus_clustering as mcc
 import hdbscan
 
 
-def igraph_community_detection(G, detection_algorithm):
+def igraph_community_detection(graph, detection_algorithm, resolution):
     """
     Function for community detection. Uses the igraph community detection functions to partition the graph
      in community based on edge weight. Merges the community to one node, by combing all attributes in a list and
      by mean edge weight.
 
+    @param resolution:
     @param detection_algorithm: Name of the algorithm on which the community detection is based.
         Can be "fast_greedy", "newman2006", louvian" or "all" to get a list algorithm clusterings.
-    @param G: The graph on which to detect communities.
+    @param graph: The graph on which to detect communities.
     @return: Returns the merged graph based on community.
     """
 
     # no match case in python <3.10, therefore if/elif
     if detection_algorithm == "fast_greedy":
         # fast_greedy graph community detection
-        vertex_clustering = ig.Graph.community_fastgreedy(G, weights="weight").as_clustering()
+        vertex_clustering = ig.Graph.community_fastgreedy(graph, weights="weight").as_clustering()
 
     elif detection_algorithm == "newman2006":
         # newman2006 graph community detection, more community then the others
-        vertex_clustering = ig.Graph.community_leading_eigenvector(G, weights="weight")
+        vertex_clustering = ig.Graph.community_leading_eigenvector(graph, weights="weight")
 
     elif detection_algorithm == "louvain":
         # louvain methode for graph community detection
-        vertex_clustering = ig.Graph.community_multilevel(G, weights="weight")
+        vertex_clustering = ig.Graph.community_multilevel(graph, weights="weight")
+
+    elif detection_algorithm == "infomap":
+        # info map algorithm
+        vertex_clustering = ig.Graph.community_infomap(graph, edge_weights="weight")
 
     elif detection_algorithm == "leiden":
         # leiden methode for graph community detection, improvement of the louvain methode
         # https://arxiv.org/abs/1810.08473
-        vertex_clustering = ig.Graph.community_leiden(G, weights="weight", objective_function="modularity", n_iterations=-1)
+        vertex_clustering = ig.Graph.community_leiden(graph, weights="weight", objective_function="modularity",
+                                                      n_iterations=-1, resolution_parameter=resolution)
 
     else:
         # if none of the above are selected -> automatically uses leiden
-        vertex_clustering = ig.Graph.community_leiden(G, weights="weight", objective_function="modularity", n_iterations=-1)
+        vertex_clustering = ig.Graph.community_leiden(graph, weights="weight", objective_function="modularity", n_iterations=-1)
 
     return vertex_clustering
 

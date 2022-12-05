@@ -29,10 +29,10 @@ def meta_graph(clustering_data, settings_data, bin):
 
     # outlier detection
     if bin < 200:
-        graph = mcc.hdbscan_outlier(graph, threshold=0.1, plot_on_off=False)
+        graph = mcc.hdbscan_outlier(graph, plot_on_off=False)
 
     # detect and merge communities in the meta graph
-    graph = mcc.igraph_community_detection(graph, detection_algorithm="leiden")
+    graph = mcc.igraph_community_detection(graph, detection_algorithm="louvain", resolution=None)
 
     # contract graph clustering into single node
     graph = mcc.contract_graph(graph)
