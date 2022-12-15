@@ -5,7 +5,7 @@ import multires_consensus_clustering as mcc
 import time
 
 
-def multiresolution_graph(clustering_data, settings_data, list_resolutions, neighbour_based):
+def multiresolution_graph(clustering_data, settings_data, list_resolutions, neighbour_based, single_resolution):
     """
     Creates a multi-resolution graph based on the resolutions given in the list_resolutions.
     Can either create a graph where all resolution vertices are connected or only the neighbouring resolutions are connected.
@@ -14,6 +14,7 @@ def multiresolution_graph(clustering_data, settings_data, list_resolutions, neig
     @param clustering_data: The cluster data.
     @param neighbour_based: Boolean to decided on the way to connect the vertices across resolutions.
     @param list_resolutions: The list containing the different resolutions, e.g. [3,5,9,20, ... ] or "all"
+    @param single_resolution: Resolution Parameter for the meta-graph (leiden community detection resolution parameter)
     @return: The mulit-graph as a iGraph graph.
     """
 
@@ -25,7 +26,7 @@ def multiresolution_graph(clustering_data, settings_data, list_resolutions, neig
     if len_list_resolutions <= 1:
         print("More then one resolution needed for multi resolution graph.")
 
-        return mcc.meta_graph(clustering_data, settings_data, list_resolutions[0])
+        return mcc.meta_graph(clustering_data, settings_data, list_resolutions[0], single_resolution)
 
     # create the multi graph
     else:
@@ -37,7 +38,7 @@ def multiresolution_graph(clustering_data, settings_data, list_resolutions, neig
             list_resolutions.sort()
 
         # create first graph and assign the level
-        resolution_1 = mcc.meta_graph(clustering_data, settings_data, list_resolutions[0])
+        resolution_1 = mcc.meta_graph(clustering_data, settings_data, list_resolutions[0], single_resolution)
         resolution_1.vs["level"] = [level_count] * resolution_1.vcount()
 
         # create new attribute to save the cell probabilities in a meta node
@@ -59,7 +60,7 @@ def multiresolution_graph(clustering_data, settings_data, list_resolutions, neig
         for resolution in list_resolutions:
 
             # create graph and assign the level
-            resolution_2 = mcc.meta_graph(clustering_data, settings_data, resolution)
+            resolution_2 = mcc.meta_graph(clustering_data, settings_data, resolution, single_resolution)
             resolution_2.vs["level"] = [level_resolution_2] * resolution_2.vcount()
 
             # delete all edges of the old graph
@@ -255,8 +256,12 @@ def multires_community_detection(graph, clustering_data, community_detection, mu
     @return: A clustering tree, igraph Graph.
     """
 
-    # set the upper quantile for the merge edges threshold
-    merge_edges_threshold = (max(graph.es["weight"]) + (max(graph.es["weight"]) + min(graph.es["weight"])) / 2) / 2
+    # check if the graph has edges in order to be able to calculate the threshold
+    if graph.es["weight"]:
+        # set the upper quantile for the merge edges threshold
+        merge_edges_threshold = (max(graph.es["weight"]) + (max(graph.es["weight"]) + min(graph.es["weight"])) / 2) / 2
+    else:
+        merge_edges_threshold = 1
 
     # apply probability outlier detection to the graph
     graph = mcc.filter_by_node_probability(graph)

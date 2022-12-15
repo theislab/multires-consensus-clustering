@@ -9,7 +9,7 @@ import seaborn as sns
 from multires_consensus_clustering import binning
 
 
-def meta_graph(clustering_data, settings_data, bin):
+def meta_graph(clustering_data, settings_data, bin, single_resolution):
     """
     Uses the Meta Graph script to build the graph from the sc data.
 
@@ -17,6 +17,7 @@ def meta_graph(clustering_data, settings_data, bin):
         and clustering names as column index
     @param settings_data: The settings used for the clustering_data, number clusters, etc.
     @param bin: The bin from which the clustering should be created, see binning.py
+    @param single_resolution: Resolution Parameter for the meta-graph (leiden community detection resolution parameter)
     @return: The meta graph; "graph" an igraph object graph.
     """
 
@@ -32,7 +33,7 @@ def meta_graph(clustering_data, settings_data, bin):
         graph = mcc.hdbscan_outlier(graph, plot_on_off=False)
 
     # detect and merge communities in the meta graph
-    graph = mcc.igraph_community_detection(graph, detection_algorithm="louvain", resolution=None)
+    graph = mcc.igraph_community_detection(graph, detection_algorithm="leiden", resolution=single_resolution)
 
     # contract graph clustering into single node
     graph = mcc.contract_graph(graph)

@@ -10,7 +10,8 @@ def igraph_community_detection(graph, detection_algorithm, resolution):
      in community based on edge weight. Merges the community to one node, by combing all attributes in a list and
      by mean edge weight.
 
-    @param resolution:
+    @param resolution: Float (0, inf). Sets the resolution parameter in cases the selected community detection method
+        has optional resolution parameter implemented.
     @param detection_algorithm: Name of the algorithm on which the community detection is based.
         Can be "fast_greedy", "newman2006", louvian" or "all" to get a list algorithm clusterings.
     @param graph: The graph on which to detect communities.
