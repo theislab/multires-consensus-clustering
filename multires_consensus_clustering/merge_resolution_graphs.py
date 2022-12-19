@@ -5,7 +5,7 @@ import multires_consensus_clustering as mcc
 import time
 
 
-def multiresolution_graph(clustering_data, settings_data, list_resolutions, neighbour_based):
+def multiresolution_graph(clustering_data, settings_data, list_resolutions, neighbour_based, single_resolution):
     """
     Creates a multi-resolution graph based on the resolutions given in the list_resolutions.
     Can either create a graph where all resolution vertices are connected or only the neighbouring resolutions are connected.
@@ -14,6 +14,7 @@ def multiresolution_graph(clustering_data, settings_data, list_resolutions, neig
     @param clustering_data: The cluster data.
     @param neighbour_based: Boolean to decided on the way to connect the vertices across resolutions.
     @param list_resolutions: The list containing the different resolutions, e.g. [3,5,9,20, ... ] or "all"
+    @param single_resolution: Resolution Parameter for the meta-graph (leiden community detection resolution parameter)
     @return: The mulit-graph as a iGraph graph.
     """
 
@@ -25,7 +26,7 @@ def multiresolution_graph(clustering_data, settings_data, list_resolutions, neig
     if len_list_resolutions <= 1:
         print("More then one resolution needed for multi resolution graph.")
 
-        return mcc.meta_graph(clustering_data, settings_data, list_resolutions[0])
+        return mcc.meta_graph(clustering_data, settings_data, list_resolutions[0], single_resolution)
 
     # create the multi graph
     else:
@@ -37,7 +38,7 @@ def multiresolution_graph(clustering_data, settings_data, list_resolutions, neig
             list_resolutions.sort()
 
         # create first graph and assign the level
-        resolution_1 = mcc.meta_graph(clustering_data, settings_data, list_resolutions[0])
+        resolution_1 = mcc.meta_graph(clustering_data, settings_data, list_resolutions[0], single_resolution)
         resolution_1.vs["level"] = [level_count] * resolution_1.vcount()
 
         # create new attribute to save the cell probabilities in a meta node
@@ -59,7 +60,7 @@ def multiresolution_graph(clustering_data, settings_data, list_resolutions, neig
         for resolution in list_resolutions:
 
             # create graph and assign the level
-            resolution_2 = mcc.meta_graph(clustering_data, settings_data, resolution)
+            resolution_2 = mcc.meta_graph(clustering_data, settings_data, resolution, single_resolution)
             resolution_2.vs["level"] = [level_resolution_2] * resolution_2.vcount()
 
             # delete all edges of the old graph
@@ -242,38 +243,36 @@ def reconnect_graph(graph):
     return graph
 
 
-def multires_community_detection(graph, clustering_data, community_detection, merge_edges_threshold, outlier_detection,
-                                 outlier_detection_threshold):
+def multires_community_detection(graph, clustering_data, community_detection, multi_resolution):
     """
     Uses louvain community detection on the multi-resolution graph and creates a clustering tree with reconnect_graph.
     Optional clean up of the clustering tree with edge merging.
 
-    @param outlier_detection_threshold: Value on which the outlier detection is based, can be 0 to 1.
+    @param multi_resolution: Resolution parameter for the community detection function.
     @param clustering_data: The clustering data on which the graph is based
-    @param outlier_detection: String: "probability" or "hdbscan" to choose on which the outlier detciton is based.
-    @param merge_edges_threshold: Threshold for edges to merge at the end, should probably be between 0.8-1.
-    @param community_detection: "leiden", "hdbscan", "component" or else automatically louvain,
+    @param community_detection: "leiden", "hdbscan" or else automatically louvain,
         detects community with the named algorithms
-    @param graph: The mulit resolution graph, iGraph graph.
+    @param graph: The multi resolution graph, iGraph graph.
     @return: A clustering tree, igraph Graph.
     """
 
-    # choose outlier detection
-    if outlier_detection == "probability":
-        graph = mcc.filter_by_node_probability(graph, threshold=outlier_detection_threshold)
-    elif outlier_detection == "hdbscan":
-        graph = mcc.hdbscan_outlier(graph, threshold=1 - outlier_detection_threshold, plot_on_off=False)
+    # check if the graph has edges in order to be able to calculate the threshold
+    if graph.es["weight"]:
+        # set the upper quantile for the merge edges threshold
+        merge_edges_threshold = (max(graph.es["weight"]) + (max(graph.es["weight"]) + min(graph.es["weight"])) / 2) / 2
+    else:
+        merge_edges_threshold = 1
+
+    # apply probability outlier detection to the graph
+    graph = mcc.filter_by_node_probability(graph)
 
     # community detection
     if community_detection == "leiden":
         # uses the leiden algorithm for community detection
-        vertex_clustering = ig.Graph.community_leiden(graph, weights="weight")
+        vertex_clustering = ig.Graph.community_leiden(graph, weights="weight", resolution_parameter=multi_resolution)
     elif community_detection == "hdbscan" and graph.vcount() > 1 and graph.ecount() > 0:
         # use hdbscan for community detection
         vertex_clustering = mcc.hdbscan_community_detection(graph)
-    elif community_detection == "component":
-        # splits the graph into components and merges these components into a single node
-        vertex_clustering = mcc.component_merger(graph, threshold_edges_to_delete=0.99)
     else:
         # if nothing is selected uses louvain community detection
         vertex_clustering = ig.Graph.community_multilevel(graph, weights="weight")
@@ -298,7 +297,9 @@ def multires_community_detection(graph, clustering_data, community_detection, me
             new_probabilities = mcc.graph_nodes_cells_to_df(graph, clustering_data)
             graph.vs["probability_df"] = [new_probabilities[column].values for column in new_probabilities.columns]
 
+            # check if graph has more then vertices, if so recalculates the edges
             if graph.vcount() != 1:
                 graph.delete_edges()
                 graph = reconnect_graph(graph)
+
     return graph

@@ -41,7 +41,8 @@ def relabel_cell(df_cell_probability, adata_s2d1):
 def true_labels(labels_df, adata):
     """
     Assigns the 'true' labels to the adata plot based on the labels_df provided.
-    @param labels_df: Dataframe containg the "true" labels, for benachmark data with provided labels.
+
+    @param labels_df: Dataframe containing the "true" labels, for benchmark data with provided labels.
     @param adata: The single cell data, as an adata file.
     """
 
@@ -66,7 +67,7 @@ def graph_to_cell_labels_df(graph):
     df_cell_clusters = pd.DataFrame({
         'cell': graph.vs[0]["cell_index"],
         'probability': pd.Series([-1] * len_df, dtype='float'),
-        'cluster_labels': [str(0)] * len_df,
+        'cluster_labels': [str(-1)] * len_df,
         'level_cluster_label': [np.inf] * len_df,
         'number_cell_occurrence': [0] * len_df,
         'number_same_probability': [0] * len_df
