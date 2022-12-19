@@ -30,7 +30,7 @@ def run_multires_consensus_clustering(clustering_data, settings_data, adata, com
     @param single_resolution: Resolution Parameter for the meta-graph (leiden community detection resolution parameter)
     @param multi_resolution: Resolution parameter for the community detection in the multi-resolution graph; (0, inf).
 
-    @param plot_interactive_graph: True or False to plat the graph created by the function in a bokeh html representation.
+    @param plot_interactive_graph: True or False to plot the graph created by the function in a bokeh html representation.
     @param plot_labels: True or False to plot the ture labels and the assigned cluster labels.
     @param plot_probabilities: True or False to plot the probabilities of the cells using the umap created with scanpy.
 
