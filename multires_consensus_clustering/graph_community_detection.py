@@ -92,7 +92,7 @@ def hdbscan_community_detection(graph):
     # if infinite distances catches case by running leiden community detection.
     else:
         print("Graph has distances np.inf, thus HDBscan won't compute.")
-        vertex_clustering = igraph_community_detection(graph, "leiden")
+        vertex_clustering = igraph_community_detection(graph, "leiden", resolution=1)
 
     return vertex_clustering
 
