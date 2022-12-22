@@ -256,13 +256,6 @@ def multires_community_detection(graph, clustering_data, community_detection, mu
     @return: A clustering tree, igraph Graph.
     """
 
-    # check if the graph has edges in order to be able to calculate the threshold
-    if graph.es["weight"]:
-        # set the upper quantile for the merge edges threshold
-        merge_edges_threshold = (max(graph.es["weight"]) + (max(graph.es["weight"]) + min(graph.es["weight"])) / 2) / 2
-    else:
-        merge_edges_threshold = 1
-
     # apply probability outlier detection to the graph
     graph = mcc.filter_by_node_probability(graph)
 
@@ -290,6 +283,16 @@ def multires_community_detection(graph, clustering_data, community_detection, mu
         graph = reconnect_graph(graph)
 
         if graph.ecount() > 0:
+            # calculate max and min edge weights
+            max_edge = max(graph.es["weight"])
+            min_edge = min(graph.es["weight"])
+
+            # calculate max-min average
+            max_min_average = (max_edge + min_edge) / 2
+
+            # set the upper quantile for the merge edges threshold
+            merge_edges_threshold = (max_edge + max_min_average) / 2
+
             # clean up graph by merging some edges
             graph = mcc.merge_edges_weight_above_threshold(graph, threshold=merge_edges_threshold)
 

@@ -125,10 +125,9 @@ def hdbscan_delete_outlier_nodes(graph, plot_on_off):
 
     # get hdbscan outlier scores
     outlier_scores_series = pd.Series(clusterer.outlier_scores_)
-    outlier_scores_max = outlier_scores_series.max()
 
     # get threshold for outlier detection
-    threshold = (outlier_scores_max + (outlier_scores_max + outlier_scores_series.median())) / 2
+    threshold = np.percentile(outlier_scores_series.values, 75)
 
     # hdbscan outlier detection
     outliers = np.where(clusterer.outlier_scores_ > threshold)[0]
@@ -174,10 +173,9 @@ def filter_by_node_probability(graph):
 
     # get max probability graph
     probability_vertex = [sum(probabilities) / np.count_nonzero(probabilities) for probabilities in graph.vs["probability_df"]]
-    max_prob = max(probability_vertex)
-    min_prob = min(probability_vertex)
 
-    threshold = (max_prob + (max_prob + min_prob) / 2) / 2
+    # set the threshold for the outlier detection as the upper quantile
+    threshold = np.percentile(probability_vertex, 75)
 
     # calculates the average probability for every vertex
     for vertex in graph.vs:
